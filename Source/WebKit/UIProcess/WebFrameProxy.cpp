@@ -477,12 +477,14 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, String&&
     m_childFrames.add(WTFMove(child));
 }
 
-void WebFrameProxy::prepareForProvisionalLoadInProcess(WebProcessProxy& process, API::Navigation& navigation, BrowsingContextGroup& group, CompletionHandler<void(WebCore::PageIdentifier)>&& completionHandler)
+void WebFrameProxy::prepareForProvisionalLoadInProcess(WebProcessProxy& process, API::Navigation& navigation, BrowsingContextGroup& group, CompletionHandler<void(WebCore::PageIdentifier)>&& completionHandler, RefPtr<WebFrameProxy> parentFrameIfNavigatingToAboutBlank)
 {
     if (isMainFrame())
         return completionHandler(*webPageIDInCurrentProcess());
 
-    Site navigationSite(navigation.currentRequest().url());
+    const URL& navigationURL = !navigation.currentRequest().url().isAboutBlank() ? navigation.currentRequest().url() : parentFrameIfNavigatingToAboutBlank->url();
+
+    Site navigationSite = Site(navigationURL);
     RefPtr page = m_page.get();
     // FIXME: Main resource (of main or subframe) request redirects should go straight from the network to UI process so we don't need to make the processes for each domain in a redirect chain. <rdar://116202119>
     RegistrableDomain mainFrameDomain(page->mainFrame()->url());

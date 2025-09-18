@@ -2080,6 +2080,15 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
         }
     }
 
+    if (siteIsolationEnabled && !site.matches(sourceURL) && targetURL.isAboutBlank()) {
+        // about:blank should consolidate with parent frame, not main frame
+        if (RefPtr<WebFrameProxy> parentFrame = frame.parentFrame()) {
+            Ref parentProcess = parentFrame->process();
+            if (!parentProcess->isInProcessCache())
+                return completionHandler(parentProcess.copyRef(), nullptr, "Found process for about:blank's parent frame"_s);
+        }
+    }
+
     Ref sourceProcess = frame.process();
     auto [process, suspendedPage, reason] = processForNavigationInternal(page, navigation, sourceProcess.copyRef(), sourceURL, processSwapRequestedByClient, lockdownMode, frameInfo, dataStore.copyRef());
 

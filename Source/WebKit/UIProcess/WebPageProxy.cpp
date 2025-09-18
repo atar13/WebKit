@@ -5327,13 +5327,31 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         if (navigation.isInitialFrameSrcLoad())
             frame.setIsPendingInitialHistoryItem(true);
 
+        if (navigation.currentRequest().url().isAboutBlank() && !frame.isMainFrame()) {
+            if (RefPtr<WebFrameProxy> parentFrame = frame.parentFrame()) {
+
+                frame.prepareForProvisionalLoadInProcess(newProcess, navigation, m_browsingContextGroup, [
+                    loadParameters = WTFMove(loadParameters),
+                    newProcess = newProcess.copyRef(),
+                    preventProcessShutdownScope = newProcess->shutdownPreventingScope()
+                ] (PageIdentifier pageID) mutable {
+                    newProcess->send(Messages::WebPage::LoadRequest(WTFMove(loadParameters)), pageID);
+                    },
+                    parentFrame
+                );
+                return;
+            }
+        } 
+
         frame.prepareForProvisionalLoadInProcess(newProcess, navigation, m_browsingContextGroup, [
             loadParameters = WTFMove(loadParameters),
             newProcess = newProcess.copyRef(),
             preventProcessShutdownScope = newProcess->shutdownPreventingScope()
         ] (PageIdentifier pageID) mutable {
             newProcess->send(Messages::WebPage::LoadRequest(WTFMove(loadParameters)), pageID);
-        });
+            },
+            nullptr
+        );
         return;
     }
 
