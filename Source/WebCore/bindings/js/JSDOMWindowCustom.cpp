@@ -202,6 +202,7 @@ bool JSDOMWindow::getOwnPropertySlot(JSObject* object, JSGlobalObject* lexicalGl
     if (!is<LocalDOMWindow>(thisObject->wrapped()) && propertyName == "$vm"_s) [[unlikely]]
         return true;
 
+    WTFLogAlways("[atar] Trying to access DOMWindow Property %s", propertyName.publicName()->utf8().data());
     // Hand off all cross-domain access to jsDOMWindowGetOwnPropertySlotRestrictedAccess.
     String errorMessage;
     if (!BindingSecurity::shouldAllowAccessToDOMWindow(*lexicalGlobalObject, thisObject->wrapped(), errorMessage))

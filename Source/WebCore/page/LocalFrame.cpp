@@ -118,6 +118,7 @@
 #include "runtime_root.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/RegularExpression.h>
+#include <type_traits>
 #include <wtf/HexNumber.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
@@ -192,6 +193,7 @@ LocalFrame::LocalFrame(Page& page, ClientCreator&& clientCreator, FrameIdentifie
     , m_sandboxFlags(sandboxFlags)
     , m_eventHandler(makeUniqueRef<EventHandler>(*this))
 {
+    ALWAYS_LOG_WITH_STREAM(stream << "[atar] Calling LocalFrame constructor. parent: " << parent << " addToFrameTree: " << static_cast<std::underlying_type<AddToFrameTree>::type>(addToFrameTree));
     ProcessWarming::initializeNames();
     StaticCSSValuePool::init();
 

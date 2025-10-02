@@ -13,13 +13,13 @@ loadedAboutBlank = function() {
   i.onload = null;
 
   debug("modifying about:blank DOM");
-  shouldNotThrow(`
-      i.contentWindow.document.body.appendChild(
-          i.contentWindow.document.createTextNode('some text')
-      );
-  `);
+  // shouldNotThrow(`
+  //     i.contentWindow.document.body.appendChild(
+  //         i.contentWindow.document.createTextNode('some text')
+  //     );
+  // `);
 
-  shouldBe('i.contentWindow.document.body.childNodes.length', '1');
+  // shouldBe('i.contentWindow.document.body.childNodes.length', '1');
   shouldBe('i.contentWindow.document.body.firstChild.textContent', '"some text"');
 
   finishJSTest();

@@ -173,8 +173,10 @@ static std::pair<Ref<SecurityOrigin>, CrossOriginOpenerPolicy> computeResponseOr
     // Non-initial empty documents (about:blank) should inherit their cross-origin-opener-policy from the navigation's initiator top level document,
     // if the initiator and its top level document are same-origin, or default (unsafe-none) otherwise.
     // https://github.com/whatwg/html/issues/6913
-    if (SecurityPolicy::shouldInheritSecurityOriginFromOwner(response.url()) && requester)
+    if (SecurityPolicy::shouldInheritSecurityOriginFromOwner(response.url()) && requester) {
+        WTFLogAlways("[atar] %s INHERITING ORIGIN %s", __FUNCTION__, requester->securityOrigin->toString().utf8().data());
         return { requester->securityOrigin, requester->securityOrigin->isSameOriginAs(requester->topOrigin) ? requester->policyContainer.crossOriginOpenerPolicy : CrossOriginOpenerPolicy { } };
+    }
 
     // If the HTTP response contains a CSP header, it may set sandbox flags, which would cause the origin to become opaque.
     auto responseOrigin = responseCSP && !responseCSP->sandboxFlags().isEmpty() ? SecurityOrigin::createOpaque() : SecurityOrigin::create(response.url());

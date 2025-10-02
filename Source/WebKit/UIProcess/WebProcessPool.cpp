@@ -95,6 +95,8 @@
 #include "WebUserContentControllerProxy.h"
 #include "WebsiteDataStore.h"
 #include "WebsiteDataStoreParameters.h"
+#include "wtf/Assertions.h"
+#include "wtf/StdLibExtras.h"
 #include <JavaScriptCore/JSCInlines.h>
 #include <WebCore/GamepadProvider.h>
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
@@ -2062,7 +2064,12 @@ void WebProcessPool::removeProcessFromOriginCacheSet(WebProcessProxy& process)
 
 void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& frame, const API::Navigation& navigation, const URL& sourceURL, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, LoadedWebArchive loadedWebArchive, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral)>&& completionHandler)
 {
-    Site site { navigation.currentRequest().url() };
+    auto& targetURL = navigation.currentRequest().url();
+    Site site { targetURL };
+    auto getURLEvenIfBlank = [] (Site& site) {
+        return site.isEmpty() ? "empty url"_s : site.toString();
+    };
+    ALWAYS_LOG_WITH_STREAM(stream << "Navigating from " << frame.url().string() << " to " << getURLEvenIfBlank(site));
     bool siteIsolationEnabled = page.protectedPreferences()->siteIsolationEnabled();
     if (siteIsolationEnabled && !site.isEmpty()) {
         auto mainFrameSite = frameInfo.isMainFrame ? site : Site(URL(page.protectedPageLoadState()->activeURL()));
@@ -2091,6 +2098,8 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
 
     Ref sourceProcess = frame.process();
     auto [process, suspendedPage, reason] = processForNavigationInternal(page, navigation, sourceProcess.copyRef(), sourceURL, processSwapRequestedByClient, lockdownMode, frameInfo, dataStore.copyRef());
+    ALWAYS_LOG_WITH_STREAM(stream << "reason for navigation: " << reason);
+    ALWAYS_LOG_WITH_STREAM(stream << "new current proccess id: " << process.get().processID());
 
     // We are process-swapping so automatic process prewarming would be beneficial if the client has not explicitly enabled / disabled it.
     bool doingAnAutomaticProcessSwap = processSwapRequestedByClient == ProcessSwapRequestedByClient::No && process.ptr() != sourceProcess.ptr();
@@ -2259,8 +2268,10 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
         return { WTFMove(sourceProcess), nullptr, "Navigation is same-site"_s };
 
     if (sourceURL.protocolIsAbout()) {
-        if (sourceProcess->site() && sourceProcess->site()->domain().matches(targetURL))
+        if (sourceProcess->site() && sourceProcess->site()->domain().matches(targetURL)) {
+            WTFLogAlways("navigating from about:blank, treating as same site");
             return { WTFMove(sourceProcess), nullptr, "Navigation is treated as same-site"_s };
+        }
         // With site isolation enabled, this condition is not enough to indicate the web process can be reused;
         // we may also need to consider whether the process is used or in use by other sites.
         if (!siteIsolationEnabled && !sourceProcess->hasCommittedAnyMeaningfulProvisionalLoads())

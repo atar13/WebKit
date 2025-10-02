@@ -45,6 +45,11 @@ void SecurityContext::setSecurityOriginPolicy(RefPtr<SecurityOriginPolicy>&& sec
     auto currentOrigin = securityOrigin() ? securityOrigin()->data() : SecurityOriginData { };
     bool haveInitializedSecurityOrigin = std::exchange(m_haveInitializedSecurityOrigin, true);
 
+    ALWAYS_LOG_WITH_STREAM(stream << "[atar] security origin is being set to " << securityOriginPolicy->origin().toString());
+    if (securityOriginPolicy->origin().toString() == "null"_s) {
+        ALWAYS_LOG_WITH_STREAM(stream << "[atar] security origin is being set to null");
+    }
+
     m_securityOriginPolicy = WTFMove(securityOriginPolicy);
     m_hasEmptySecurityOriginPolicy = false;
 

@@ -66,14 +66,40 @@ RefPtr<FrameProcess> BrowsingContextGroup::sharedProcessForSite(WebsiteDataStore
 
 Ref<FrameProcess> BrowsingContextGroup::ensureProcessForSite(const Site& site, WebProcessProxy& process, const WebPreferences& preferences, InjectBrowsingContextIntoProcess injectBrowsingContextIntoProcess)
 {
+    // TODO: add logic here to pick the site when navigating to about:blank
+    WTFLogAlways("Which sites do we have processes for?");
+    if (m_processMap.isEmpty()) {
+        WTFLogAlways("No site in process map");
+    }
+    for (auto& site : m_processMap.keys()) {
+        WTFLogAlways("\t site:%s ", site.toString().ascii().data());
+    }
+    bool logAbout = false;
+    if (site.domain() == "nullOrigin"_s) {
+        logAbout = true;
+        WTFLogAlways("[atar] checking if there's already a process for going to about:blank");
+    }
     if (preferences.siteIsolationEnabled()) {
         if (m_sharedProcess && m_sharedProcessSites.contains(site)) {
+            if (logAbout)
+                WTFLogAlways("[atar] found a sharedProcess");
             ASSERT(&m_sharedProcess->process() == &process);
             return *m_sharedProcess;
         }
+
         if (RefPtr existingProcess = processForSite(site)) {
-            if (existingProcess->process().coreProcessIdentifier() == process.coreProcessIdentifier())
+            if (logAbout)
+                WTFLogAlways("[atar] found an existing process");
+            if (existingProcess->process().coreProcessIdentifier() == process.coreProcessIdentifier()) {
+                if (logAbout)
+                    WTFLogAlways("[atar] existing process matched the ID of one we were given");
                 return existingProcess.releaseNonNull();
+            }
+            if (logAbout)
+                WTFLogAlways("[atar] existing process didn't match the ID of one we were given for some reason?");
+        } else {
+            if (logAbout)
+                WTFLogAlways("[atar] no existing process");
         }
     }
 

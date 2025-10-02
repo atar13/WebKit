@@ -8314,6 +8314,7 @@ void Document::initSecurityContext()
         ownerFrame = openerFrame;
 
     if (!ownerFrame) {
+        WTFLogAlways("[atar] (%s) FAILED to initialize security origin for %s. parentFrame %p; openerFrame: %p", __FUNCTION__, m_url.url().string().utf8().data(), parentFrame.get(), openerFrame.get());
         didFailToInitializeSecurityOrigin();
         return;
     }
