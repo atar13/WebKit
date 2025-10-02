@@ -201,6 +201,7 @@
 #include "WebViewDidMoveToWindowObserver.h"
 #include "WebWheelEventCoalescer.h"
 #include "WebsiteDataStore.h"
+#include "wtf/Assertions.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <WebCore/AlternativeTextClient.h>
 #include <WebCore/AppHighlight.h>
@@ -257,6 +258,7 @@
 #include <WebCore/RenderEmbeddedObject.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/RunJavaScriptParameters.h>
+#include <WebCore/SecurityPolicy.h>
 #include <WebCore/SerializedCryptoKeyWrap.h>
 #include <WebCore/SerializedScriptValue.h>
 #include <WebCore/ShareData.h>
@@ -5042,10 +5044,12 @@ void WebPageProxy::receivedNavigationActionPolicyDecision(WebProcessProxy& proce
         const bool navigationChangesFrameProcess = processNavigatingTo->coreProcessIdentifier() != processNavigatingFrom->coreProcessIdentifier();
         const bool loadContinuingInNonInitiatingProcess = processInitiatingNavigation->coreProcessIdentifier() != processNavigatingTo->coreProcessIdentifier();
         if (navigationChangesFrameProcess) {
+            ALWAYS_LOG_WITH_STREAM(stream << "[atar] Navigating is causing a change in frame process from "_s << processNavigatingFrom->coreProcessIdentifier() << " to "_s << processNavigatingTo->coreProcessIdentifier());
             policyAction = PolicyAction::LoadWillContinueInAnotherProcess;
             WEBPAGEPROXY_RELEASE_LOG(ProcessSwapping, "decidePolicyForNavigationAction, swapping process %i with process %i for navigation, reason=%" PUBLIC_LOG_STRING, legacyMainFrameProcessID(), processNavigatingTo->processID(), reason.characters());
             LOG(ProcessSwapping, "(ProcessSwapping) Switching from process %i to new process (%i) for navigation %" PRIu64 " '%s'", legacyMainFrameProcessID(), processNavigatingTo->processID(), navigation->navigationID().toUInt64(), navigation->loggingString().utf8().data());
         } else {
+            ALWAYS_LOG_WITH_STREAM(stream << "[atar] Navigating didn't cause a change in process. Remained at "_s << processNavigatingFrom->coreProcessIdentifier());
             WEBPAGEPROXY_RELEASE_LOG(ProcessSwapping, "decidePolicyForNavigationAction: keep using process %i for navigation, reason=%" PUBLIC_LOG_STRING, legacyMainFrameProcessID(), reason.characters());
             frame->takeProvisionalFrame();
         }
@@ -5076,6 +5080,7 @@ void WebPageProxy::receivedNavigationActionPolicyDecision(WebProcessProxy& proce
             return;
         }
 
+        ALWAYS_LOG_WITH_STREAM(stream << "[atar]  loadContinuingInNonInitiatingProcess: "_s << loadContinuingInNonInitiatingProcess);
         if (loadContinuingInNonInitiatingProcess) {
             // FIXME: Add more parameters as appropriate. <rdar://116200985>
             LoadParameters loadParameters;
@@ -5288,6 +5293,8 @@ void WebPageProxy::destroyProvisionalPage()
 
 void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, WebFrameProxy& frame, RefPtr<SuspendedPageProxy>&& suspendedPage, Ref<WebProcessProxy>&& newProcess, ProcessSwapRequestedByClient processSwapRequestedByClient, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume, LoadedWebArchive loadedWebArchive, IsPerformingHTTPFallback isPerformingHTTPFallback, WebCore::ProcessSwapDisposition processSwapDisposition, WebsiteDataStore* replacedDataStoreForWebArchiveLoad)
 {
+    WTFLogAlways("[atar] continueNavigationInNewProcess: newProcessPID=%i, hasSuspendedPage=%i", newProcess->processID(), !!suspendedPage);
+    WTFLogAlways("[atar] Continuing navigation %" PRIu64 " '%s' in a new web process", navigation.navigationID().toUInt64(), navigation.originalRequest().url().string().utf8().data());
     WEBPAGEPROXY_RELEASE_LOG(Loading, "continueNavigationInNewProcess: newProcessPID=%i, hasSuspendedPage=%i", newProcess->processID(), !!suspendedPage);
     LOG(Loading, "Continuing navigation %" PRIu64 " '%s' in a new web process", navigation.navigationID().toUInt64(), navigation.loggingString().utf8().data());
     RELEASE_ASSERT(!newProcess->isInProcessCache());
@@ -8015,9 +8022,13 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
 
     navigation->setCurrentRequest(ResourceRequest(request), process->coreProcessIdentifier());
     navigation->setLastNavigationAction(navigationActionData);
-    if (!navigation->originatingFrameInfo())
+    ALWAYS_LOG_WITH_STREAM(stream << "[atar] performing new navigation with request of url " << request.url().string());
+    if (!navigation->originatingFrameInfo()) {
+        ALWAYS_LOG_WITH_STREAM(stream << "[atar] performing new navigation with originatingFrameInfoData of " << originatingFrameInfoData.securityOrigin.toString());
         navigation->setOriginatingFrameInfo(originatingFrameInfoData);
-    navigation->setDestinationFrameSecurityOrigin(frameInfo.securityOrigin);
+    }
+    ALWAYS_LOG_WITH_STREAM(stream << "[atar] performing new navigation with securityOrigin of " << navigation->destinationFrameSecurityOrigin().toString());
+
     if (navigationActionData.originatorAdvancedPrivacyProtections)
         navigation->setOriginatorAdvancedPrivacyProtections(*navigationActionData.originatorAdvancedPrivacyProtections);
 

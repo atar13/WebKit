@@ -62,6 +62,8 @@ RemoteFrame::RemoteFrame(Page& page, ClientCreator&& clientCreator, FrameIdentif
     , m_layerHostingContextIdentifier(layerHostingContextIdentifier)
     , m_autoplayPolicy(AutoplayPolicy::Default)
 {
+    ALWAYS_LOG_WITH_STREAM(stream << "[atar] Calling RemoteFrame constructor. parent: " << parent << " addToFrameTree: " << static_cast<std::underlying_type<AddToFrameTree>::type>(addToFrameTree));
+
     setView(RemoteFrameView::create(*this));
 }
 

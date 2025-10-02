@@ -73,16 +73,24 @@ static void reportErrorAccessingRemoteFrame(JSC::JSGlobalObject* lexicalGlobalOb
 
 static inline bool canAccessDocument(JSC::JSGlobalObject* lexicalGlobalObject, Document* targetDocument, SecurityReportingOption reportingOption)
 {
-    if (!targetDocument)
+    if (!targetDocument) {
+        WTFLogAlways("[atar] no targetDocument bruh");
         return false;
+    }
+
 
     if (auto* templateHost = targetDocument->templateDocumentHost())
         targetDocument = templateHost;
 
     auto& active = activeDOMWindow(*lexicalGlobalObject);
 
+    WTFLogAlways("[atar] checking if active global object with origin %s can access document with origin %s. Are these the same? %d", active.document()->protectedSecurityOrigin()->toString().utf8().data() , targetDocument->securityOrigin().toString().utf8().data(), active.document()->protectedSecurityOrigin()->isSameOriginDomain(targetDocument->securityOrigin()));
+
     if (active.document()->protectedSecurityOrigin()->isSameOriginDomain(targetDocument->securityOrigin()))
         return true;
+
+    // WTFLogAlways("\t [atar] active origin: %s", active.document()->protectedSecurityOrigin()->data().opaqueOriginIdentifier()->toString().utf8().data());
+    // WTFLogAlways("\t [atar] target origin: %s", targetDocument->securityOrigin().data().opaqueOriginIdentifier()->toString().utf8().data());
 
     switch (reportingOption) {
     case ThrowSecurityError: {

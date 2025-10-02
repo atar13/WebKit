@@ -2183,6 +2183,16 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
 
     localFrame->loader().setHTTPFallbackInProgress(loadParameters.isPerformingHTTPFallback);
     localFrame->loader().setRequiredCookiesVersion(loadParameters.requiredCookiesVersion);
+
+    WTFLogAlways("[atar] (%s) Got a loadRequest for %s with origin", __FUNCTION__, loadParameters.request.url().string().utf8().data());
+    if (loadParameters.originatingFrame && loadParameters.request.url().isAboutBlank()) {
+        WTFLogAlways("[atar] (%s) Updating originating frame info", __FUNCTION__);
+          // Store in frame or document loader for initSecurityContext to use
+          // localFrame->setOriginatingFrameInfo(loadParameters.originatingFrame);
+    }
+
+
+
     localFrame->loader().load(WTFMove(frameLoadRequest));
 
     ASSERT(!m_pendingNavigationID);

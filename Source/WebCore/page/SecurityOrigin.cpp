@@ -248,14 +248,39 @@ bool SecurityOrigin::isSecure(const URL& url)
 
 bool SecurityOrigin::isSameOriginDomain(const SecurityOrigin& other) const
 {
-    if (m_universalAccess)
+    if (m_universalAccess) {
+        // WTFLogAlways("[atar] universalAccess is enabled");
         return true;
+    }
 
-    if (this == &other)
+    if (this == &other) {
+        // WTFLogAlways("[atar] pointer is the same");
         return true;
+    }
 
-    if (isOpaque() || other.isOpaque())
+    bool canAccess = false;
+    if (isOpaque() || other.isOpaque()) {
+        // WTFLogAlways("[atar] one of them is opaque (this url - %s opaqueOrigin - %s: %d) (other url - %s opaqueOrigin - %s: %d). Are the two opaques the same? %d", 
+        //         this->toURL().string().utf8().data(), 
+        //         data().opaqueOriginIdentifier()->toString().utf8().data(),
+        //         isOpaque(), 
+        //         other.toURL().string().utf8().data(), 
+        //         other.data().opaqueOriginIdentifier()->toString().utf8().data(),
+        //         other.isOpaque(), 
+        //         data().opaqueOriginIdentifier() == other.data().opaqueOriginIdentifier());
+        //         =======
+        // auto thisOrigin = data().opaqueOriginIdentifier();
+        // unsigned long long thisOriginRawID = thisOrigin->processIdentifier().toRawValue();
+        // auto otherOrigin = other.data().opaqueOriginIdentifier();
+        // unsigned long long otherOriginRawID = otherOrigin->processIdentifier().toRawValue();
+        // ALWAYS_LOG_WITH_STREAM(stream << "[atar] this opaque origin" << thisOriginRawID << " other: " << otherOriginRawID);
+        if (data().opaqueOriginIdentifier() != other.data().opaqueOriginIdentifier()) {
+            canAccess = false;
+        //         =======
+            // WTFLogAlways("[atar] this opaque origin %s, other opaque origin %s", this->data().opaqueOriginIdentifier()->toString().utf8().data(), other.data().opaqueOriginIdentifier()->toString().utf8().data());
+        }
         return data().opaqueOriginIdentifier() == other.data().opaqueOriginIdentifier();
+    }
 
     // Here are two cases where we should permit access:
     //
@@ -277,19 +302,25 @@ bool SecurityOrigin::isSameOriginDomain(const SecurityOrigin& other) const
     // Opera 9 allows access when only one page has set document.domain, but
     // this is a security vulnerability.
 
-    bool canAccess = false;
+    // bool canAccess = false;
     if (m_data.protocol() == other.m_data.protocol()) {
         if (!m_domainWasSetInDOM && !other.m_domainWasSetInDOM) {
-            if (m_data.host() == other.m_data.host() && m_data.port() == other.m_data.port())
+            if (m_data.host() == other.m_data.host() && m_data.port() == other.m_data.port()) {
+                WTFLogAlways("[atar] domain, host, port are the same, canAccess is true");
                 canAccess = true;
+            }
         } else if (m_domainWasSetInDOM && other.m_domainWasSetInDOM) {
-            if (m_domain == other.m_domain)
+            if (m_domain == other.m_domain) {
+                WTFLogAlways("[atar] document.domain was set in DOM, canAccess is true");
                 canAccess = true;
+            }
         }
     }
 
-    if (canAccess && isLocal())
+    if (canAccess && isLocal()) {
         canAccess = hasLocalUnseparatedPath(other);
+        WTFLogAlways("[atar] local page, canAccess is %d", canAccess);
+    }
 
     return canAccess;
 }
