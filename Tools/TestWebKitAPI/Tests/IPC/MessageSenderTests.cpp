@@ -29,6 +29,7 @@
 #include "IPCTestUtilities.h"
 #include "MessageSenderInlines.h"
 #include "Test.h"
+#include <optional>
 
 namespace TestWebKitAPI {
 
@@ -46,7 +47,7 @@ public:
 
 private:
     IPC::Connection* messageSenderConnection() const { return m_connection; };
-    uint64_t messageSenderDestinationID() const { return 0u; };
+    std::optional<uint64_t> messageSenderDestinationID() const { return std::nullopt; };
     IPC::Connection* m_connection;
 };
 

@@ -63,7 +63,7 @@ private:
 
     // IPC::MessageSender.
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final;
+    std::optional<uint64_t> messageSenderDestinationID() const final;
 
     IPC::Connection& connection() const;
     Ref<IPC::Connection> protectedConnection() const;

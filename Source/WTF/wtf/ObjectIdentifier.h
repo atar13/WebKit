@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "Assertions.h"
 #include <wtf/Compiler.h>
 #include <wtf/HashTraits.h>
 #include <wtf/UUID.h>
@@ -150,6 +151,7 @@ public:
     explicit constexpr ObjectIdentifierGeneric(RawValue identifier)
         : ObjectIdentifierGenericBase<RawValue>(identifier)
     {
+
         RELEASE_ASSERT(ObjectIdentifierGenericBase<RawValue>::isValidIdentifier(identifier));
     }
 

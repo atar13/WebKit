@@ -28,6 +28,7 @@
 
 #include "Connection.h"
 #include "StreamConnectionWorkQueue.h"
+#include <cstdint>
 #include <mutex>
 #include <wtf/NeverDestroyed.h>
 
@@ -87,17 +88,17 @@ void StreamServerConnection::invalidate()
     m_outOfStreamMessages.clear();
 }
 
-void StreamServerConnection::startReceivingMessages(StreamMessageReceiver& receiver, ReceiverName receiverName, uint64_t destinationID)
+void StreamServerConnection::startReceivingMessages(StreamMessageReceiver& receiver, ReceiverName receiverName, std::optional<uint64_t> destinationID)
 {
-    auto key = std::make_pair(static_cast<uint8_t>(receiverName), destinationID);
+    auto key = std::make_pair(static_cast<uint8_t>(receiverName), convertToRawValue(destinationID));
     Locker locker { m_receiversLock };
     auto result = m_receivers.add(key, receiver);
     ASSERT_UNUSED(result, result.isNewEntry);
 }
 
-void StreamServerConnection::stopReceivingMessages(ReceiverName receiverName, uint64_t destinationID)
+void StreamServerConnection::stopReceivingMessages(ReceiverName receiverName, std::optional<uint64_t> destinationID)
 {
-    auto key = std::make_pair(static_cast<uint8_t>(receiverName), destinationID);
+    auto key = std::make_pair(static_cast<uint8_t>(receiverName), convertToRawValue<uint64_t>(destinationID));
     Locker locker { m_receiversLock };
     bool didRemove = m_receivers.remove(key);
     ASSERT_UNUSED(didRemove, didRemove);
@@ -165,7 +166,7 @@ StreamServerConnection::DispatchResult StreamServerConnection::dispatchStreamMes
             currentReceiver = nullptr;
         }
         if (!currentReceiver) {
-            auto key = std::make_pair(static_cast<uint8_t>(currentReceiverName), m_currentDestinationID);
+            auto key = std::make_pair(static_cast<uint8_t>(currentReceiverName), convertToRawValue<uint64_t>(m_currentDestinationID));
             if (!ReceiversMap::isValidKey(key)) {
                 dispatchDidReceiveInvalidMessage(decoder);
                 return DispatchResult::HasNoMessages;
@@ -236,7 +237,7 @@ bool StreamServerConnection::processOutOfStreamMessage(Decoder& decoder)
         message = m_outOfStreamMessages.takeFirst().moveToUniquePtr();
     }
 
-    auto key = std::make_pair(static_cast<uint8_t>(message->messageReceiverName()), static_cast<uint64_t>(message->destinationID()));
+    auto key = std::make_pair(static_cast<uint8_t>(message->messageReceiverName()), static_cast<uint64_t>(convertToRawValue<uint64_t>(message->destinationID())));
 
     if (!message->isValid() || !m_receivers.isValidKey(key)) {
         // The ignoreInvalidMessageForTesting() path for sync messages that dispatchStreamMessage() has
@@ -311,6 +312,7 @@ RefPtr<StreamConnectionWorkQueue> StreamServerConnection::protectedWorkQueue() c
 {
     return m_workQueue;
 }
+
 
 
 }

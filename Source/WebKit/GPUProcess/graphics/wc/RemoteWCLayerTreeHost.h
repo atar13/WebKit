@@ -64,7 +64,7 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
-    uint64_t messageSenderDestinationID() const override;
+    std::optional<uint64_t> messageSenderDestinationID() const override;
 
     WeakPtr<GPUConnectionToWebProcess> m_connectionToWebProcess;
     WebCore::ProcessIdentifier m_webProcessIdentifier;

@@ -28,6 +28,8 @@
 
 #include "Decoder.h"
 #include "MessageReceiver.h"
+#include "Platform/IPC/Connection.h"
+#include <cstdint>
 
 namespace IPC {
 
@@ -47,14 +49,14 @@ void MessageReceiverMap::addMessageReceiver(ReceiverName messageReceiverName, Me
     m_globalMessageReceivers.set(messageReceiverName, messageReceiver);
 }
 
-void MessageReceiverMap::addMessageReceiver(ReceiverName messageReceiverName, uint64_t destinationID, MessageReceiver& messageReceiver)
+void MessageReceiverMap::addMessageReceiver(ReceiverName messageReceiverName, std::optional<uint64_t> destinationID, MessageReceiver& messageReceiver)
 {
     ASSERT(destinationID);
-    ASSERT(!m_messageReceivers.contains(std::make_pair(messageReceiverName, destinationID)));
+    ASSERT(!m_messageReceivers.contains(std::make_pair(messageReceiverName, convertToRawValue<uint64_t>(destinationID))));
     ASSERT(!m_globalMessageReceivers.contains(messageReceiverName));
 
     messageReceiver.willBeAddedToMessageReceiverMap();
-    m_messageReceivers.set(std::make_pair(messageReceiverName, destinationID), messageReceiver);
+    m_messageReceivers.set(std::make_pair(messageReceiverName, convertToRawValue<uint64_t>(destinationID)), messageReceiver);
 }
 
 void MessageReceiverMap::removeMessageReceiver(ReceiverName messageReceiverName)
@@ -70,9 +72,9 @@ void MessageReceiverMap::removeMessageReceiver(ReceiverName messageReceiverName)
     m_globalMessageReceivers.remove(it);
 }
 
-void MessageReceiverMap::removeMessageReceiver(ReceiverName messageReceiverName, uint64_t destinationID)
+void MessageReceiverMap::removeMessageReceiver(ReceiverName messageReceiverName, std::optional<uint64_t> destinationID)
 {
-    auto it = m_messageReceivers.find(std::make_pair(messageReceiverName, destinationID));
+    auto it = m_messageReceivers.find(std::make_pair(messageReceiverName, convertToRawValue<uint64_t>(destinationID)));
     if (it == m_messageReceivers.end()) {
         ASSERT_NOT_REACHED();
         return;
@@ -125,7 +127,7 @@ bool MessageReceiverMap::dispatchMessage(Connection& connection, Decoder& decode
         return true;
     }
 
-    if (auto messageReceiver = m_messageReceivers.get(std::make_pair(decoder.messageReceiverName(), decoder.destinationID()))) {
+    if (auto messageReceiver = m_messageReceivers.get(std::make_pair(decoder.messageReceiverName(), convertToRawValue<uint64_t>(decoder.destinationID())))) {
         messageReceiver->didReceiveMessage(connection, decoder);
         return true;
     }
@@ -141,7 +143,7 @@ bool MessageReceiverMap::dispatchSyncMessage(Connection& connection, Decoder& de
         return true;
     }
 
-    if (auto messageReceiver = m_messageReceivers.get(std::make_pair(decoder.messageReceiverName(), decoder.destinationID()))) {
+    if (auto messageReceiver = m_messageReceivers.get(std::make_pair(decoder.messageReceiverName(), convertToRawValue<uint64_t>(decoder.destinationID())))) {
         messageReceiver->didReceiveSyncMessage(connection, decoder, replyEncoder);
         return true;
     }

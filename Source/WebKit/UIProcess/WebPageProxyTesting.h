@@ -90,7 +90,7 @@ private:
     bool sendMessageWithAsyncReply(UniqueRef<IPC::Encoder>&&, AsyncReplyHandler, OptionSet<IPC::SendOption>) final;
 
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final;
+    std::optional<uint64_t> messageSenderDestinationID() const final;
 
     Ref<WebPageProxy> protectedPage() const;
 

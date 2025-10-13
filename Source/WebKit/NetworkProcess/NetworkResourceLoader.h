@@ -194,7 +194,7 @@ private:
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
-    uint64_t messageSenderDestinationID() const override { return m_parameters.identifier->toUInt64(); }
+    std::optional<uint64_t> messageSenderDestinationID() const override { return std::make_optional(m_parameters.identifier->toUInt64()); }
 
 #if ENABLE(CONTENT_FILTERING)
     // ContentFilterClient

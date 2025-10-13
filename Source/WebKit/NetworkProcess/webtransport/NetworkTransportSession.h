@@ -105,7 +105,7 @@ private:
 #endif
 
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final;
+    std::optional<uint64_t> messageSenderDestinationID() const final;
     void setupConnectionHandler();
     void setupDatagramConnection(CompletionHandler<void(bool)>&&);
     void receiveDatagramLoop();

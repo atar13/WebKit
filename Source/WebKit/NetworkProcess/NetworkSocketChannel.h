@@ -96,7 +96,7 @@ private:
     RefPtr<WebSocketTask> protectedSocket();
 
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final { return m_identifier.toUInt64(); }
+    std::optional<uint64_t> messageSenderDestinationID() const final { return std::make_optional(m_identifier.toUInt64()); }
 
     void finishClosingIfPossible();
 

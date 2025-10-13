@@ -36,6 +36,7 @@
 #include <WebCore/PushSubscriptionData.h>
 #include <wtf/Expected.h>
 #include <wtf/TZoneMalloc.h>
+#include <optional>
 
 namespace IPC {
 class Connection;
@@ -83,7 +84,7 @@ private:
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const final { return nullptr; }
-    uint64_t messageSenderDestinationID() const final { return 0; }
+    std::optional<uint64_t> messageSenderDestinationID() const final { return std::nullopt; }
     bool performSendWithoutUsingIPCConnection(UniqueRef<IPC::Encoder>&&) const final;
     bool performSendWithAsyncReplyWithoutUsingIPCConnection(UniqueRef<IPC::Encoder>&&, CompletionHandler<void(IPC::Decoder*)>&&) const final;
 };

@@ -88,7 +88,7 @@ private:
 
     // IPC::MessageSender.
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final { return 0; }
+    std::optional<uint64_t> messageSenderDestinationID() const final { return std::nullopt; }
 
     // IPC messages.
     void requestSharedWorker(WebCore::SharedWorkerKey&&, WebCore::SharedWorkerObjectIdentifier, WebCore::TransferredMessagePort&&, WebCore::WorkerOptions&&);

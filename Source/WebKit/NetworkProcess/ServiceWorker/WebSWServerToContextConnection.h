@@ -114,7 +114,7 @@ private:
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final;
+    std::optional<uint64_t> messageSenderDestinationID() const final;
 
     void postMessageToServiceWorkerClient(const WebCore::ScriptExecutionContextIdentifier& destinationIdentifier, const WebCore::MessageWithMessagePorts&, WebCore::ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin);
     void skipWaiting(WebCore::ServiceWorkerIdentifier, CompletionHandler<void()>&&);

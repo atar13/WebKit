@@ -44,10 +44,10 @@ public:
     ~MessageReceiverMap();
 
     void addMessageReceiver(ReceiverName, MessageReceiver&);
-    void addMessageReceiver(ReceiverName, uint64_t destinationID, MessageReceiver&);
+    void addMessageReceiver(ReceiverName, std::optional<uint64_t> destinationID, MessageReceiver&);
 
     void removeMessageReceiver(ReceiverName);
-    void removeMessageReceiver(ReceiverName, uint64_t destinationID);
+    void removeMessageReceiver(ReceiverName, std::optional<uint64_t> destinationID);
     void removeMessageReceiver(MessageReceiver&);
 
     void invalidate();

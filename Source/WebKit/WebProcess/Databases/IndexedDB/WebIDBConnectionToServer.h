@@ -55,7 +55,7 @@ private:
     WebIDBConnectionToServer(PAL::SessionID);
 
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final { return 0; }
+    std::optional<uint64_t> messageSenderDestinationID() const final { return std::nullopt; }
 
     // IDBConnectionToServerDelegate
     void deleteDatabase(const WebCore::IDBOpenRequestData&) final;

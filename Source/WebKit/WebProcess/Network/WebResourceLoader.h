@@ -82,7 +82,7 @@ private:
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
-    uint64_t messageSenderDestinationID() const override;
+    std::optional<uint64_t> messageSenderDestinationID() const override;
 
     void willSendRequest(WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&&, CompletionHandler<void(WebCore::ResourceRequest&&, bool)>&&);
     void didSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent);

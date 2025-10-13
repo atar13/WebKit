@@ -33,31 +33,17 @@ struct ReceiverMatcher {
     // Matches all messages.
     ReceiverMatcher() = default;
 
-    // Matches message to specific receiver, any destination ID.
-    ReceiverMatcher(ReceiverName receiverName)
-        : receiverName(receiverName)
-    {
-    }
-
     // Matches message to specific receiver, specific destination ID.
     // Note: destinationID == 0 matches only 0 ids.
-    ReceiverMatcher(ReceiverName receiverName, uint64_t destinationID)
+    ReceiverMatcher(ReceiverName receiverName, std::optional<uint64_t> destinationID)
         : receiverName(receiverName)
         , destinationID(destinationID)
     {
     }
 
-    // Creates a matcher from parameters where destinationID == 0 means any destintation ID. Deprecated.
-    static ReceiverMatcher createWithZeroAsAnyDestination(ReceiverName receiverName, uint64_t destinationID)
+    bool matches(ReceiverName matchReceiverName, std::optional<uint64_t> matchDestinationID) const
     {
-        if (destinationID)
-            return ReceiverMatcher { receiverName, destinationID };
-        return ReceiverMatcher { receiverName };
-    }
-
-    bool matches(ReceiverName matchReceiverName, uint64_t matchDestinationID) const
-    {
-        return !receiverName || (*receiverName == matchReceiverName && (!destinationID || *destinationID == matchDestinationID));
+        return !receiverName || (*receiverName == matchReceiverName && (!destinationID || !matchDestinationID || *destinationID == *matchDestinationID));
     }
 
     std::optional<ReceiverName> receiverName;

@@ -24,6 +24,7 @@
  */
 
 #import "config.h"
+#include <optional>
 
 #import "ArgumentCodersCocoa.h"
 #import "CoreIPCCFDictionary.h"
@@ -73,7 +74,7 @@ private:
     bool performSendWithAsyncReplyWithoutUsingIPCConnection(UniqueRef<IPC::Encoder>&&, CompletionHandler<void(IPC::Decoder*)>&&) const final;
 
     IPC::Connection* messageSenderConnection() const final { return nullptr; }
-    uint64_t messageSenderDestinationID() const final { return 0; }
+    std::optional<uint64_t> messageSenderDestinationID() const final { return std::nullopt; }
 };
 
 bool SerializationTestSender::performSendWithAsyncReplyWithoutUsingIPCConnection(UniqueRef<IPC::Encoder>&& encoder, CompletionHandler<void(IPC::Decoder*)>&& completionHandler) const

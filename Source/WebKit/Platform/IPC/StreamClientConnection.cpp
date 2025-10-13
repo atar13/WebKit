@@ -164,12 +164,12 @@ Connection& StreamClientConnection::connectionForTesting()
     return m_connection.get();
 }
 
-void StreamClientConnection::addWorkQueueMessageReceiver(ReceiverName name, WorkQueue& workQueue, WorkQueueMessageReceiverBase& receiver, uint64_t destinationID)
+void StreamClientConnection::addWorkQueueMessageReceiver(ReceiverName name, WorkQueue& workQueue, WorkQueueMessageReceiverBase& receiver, std::optional<uint64_t> destinationID)
 {
     m_connection->addWorkQueueMessageReceiver(name, workQueue, receiver, destinationID);
 }
 
-void StreamClientConnection::removeWorkQueueMessageReceiver(ReceiverName name, uint64_t destinationID)
+void StreamClientConnection::removeWorkQueueMessageReceiver(ReceiverName name, std::optional<uint64_t> destinationID)
 {
     m_connection->removeWorkQueueMessageReceiver(name, destinationID);
 }

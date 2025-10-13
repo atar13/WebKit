@@ -97,7 +97,7 @@ private:
 
     // MessageSender
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final;
+    std::optional<uint64_t> messageSenderDestinationID() const final;
 
     const Ref<IPC::Connection> m_connection;
     const ThreadSafeWeakPtr<WebCore::WebTransportSessionClient> m_client;

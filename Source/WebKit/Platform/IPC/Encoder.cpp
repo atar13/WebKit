@@ -58,7 +58,7 @@ static inline MallocSpan<uint8_t> allocateBuffer(size_t size)
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Encoder);
 
-Encoder::Encoder(MessageName messageName, uint64_t destinationID)
+Encoder::Encoder(MessageName messageName, std::optional<uint64_t> destinationID)
     : m_messageName(messageName)
     , m_destinationID(destinationID)
 {

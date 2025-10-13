@@ -114,7 +114,7 @@ private:
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
-    uint64_t messageSenderDestinationID() const override;
+    std::optional<uint64_t> messageSenderDestinationID() const override;
 
     void platformCancelNetworkLoad(CompletionHandler<void(std::span<const uint8_t>)>&&);
     void platformDestroyDownload();

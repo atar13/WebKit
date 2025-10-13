@@ -196,9 +196,9 @@ IPC::Connection* SpeechRecognitionServer::messageSenderConnection() const
     return m_process ? &m_process->connection() : nullptr;
 }
 
-uint64_t SpeechRecognitionServer::messageSenderDestinationID() const
+std::optional<uint64_t> SpeechRecognitionServer::messageSenderDestinationID() const
 {
-    return m_identifier.toUInt64();
+    return std::make_optional(m_identifier.toUInt64());
 }
 
 void SpeechRecognitionServer::mute()

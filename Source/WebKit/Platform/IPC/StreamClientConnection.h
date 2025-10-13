@@ -32,6 +32,7 @@
 #include "MessageNames.h"
 #include "StreamClientConnectionBuffer.h"
 #include "StreamServerConnection.h"
+#include <optional>
 #include <wtf/CheckedPtr.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Scope.h>
@@ -99,8 +100,8 @@ public:
     // Ensures batched messages are processed sometime in the future. FIXME: Currently distinct from flushSentMessages().
     void flushBatch() { wakeUpServer(WakeUpServer::No); }
 
-    void addWorkQueueMessageReceiver(ReceiverName, WorkQueue&, WorkQueueMessageReceiverBase&, uint64_t destinationID = 0);
-    void removeWorkQueueMessageReceiver(ReceiverName, uint64_t destinationID = 0);
+    void addWorkQueueMessageReceiver(ReceiverName, WorkQueue&, WorkQueueMessageReceiverBase&, std::optional<uint64_t> destinationID = std::nullopt);
+    void removeWorkQueueMessageReceiver(ReceiverName, std::optional<uint64_t> destinationID = std::nullopt);
 
     StreamClientConnectionBuffer& bufferForTesting();
     Connection& connectionForTesting();
@@ -124,7 +125,7 @@ private:
     bool trySendStream(std::span<uint8_t>, T& message, AdditionalData&&...);
     template<typename T>
     std::optional<SendSyncResult<T>> trySendSyncStream(T& message, Timeout, std::span<uint8_t>);
-    Error trySendDestinationIDIfNeeded(uint64_t destinationID, Timeout);
+    Error trySendDestinationIDIfNeeded(std::optional<uint64_t> destinationID, Timeout);
     void sendProcessOutOfStreamMessage(std::span<uint8_t>);
     using WakeUpServer = StreamClientConnectionBuffer::WakeUpServer;
     void wakeUpServerBatched(WakeUpServer);
@@ -154,7 +155,7 @@ private:
         WeakPtr<Connection::Client> m_receiver;
     };
     std::optional<DedicatedConnectionClient> m_dedicatedConnectionClient;
-    uint64_t m_currentDestinationID { 0 };
+    std::optional<uint64_t> m_currentDestinationID { std::nullopt };
     StreamClientConnectionBuffer m_buffer;
     unsigned m_maxBatchSize { 100 }; // Number of messages marked as StreamBatched to accumulate before notifying the server.
     unsigned m_batchSize { 0 };
@@ -172,7 +173,8 @@ Error StreamClientConnection::send(T&& message, ObjectIdentifierGeneric<U, V, W>
 
     static_assert(!T::isSync, "Message is sync!");
     Timeout timeout = defaultTimeout();
-    auto error = trySendDestinationIDIfNeeded(destinationID.toUInt64(), timeout);
+    auto destinationIDOpt = makeOptionalWhereZeroIsNullopt(destinationID.toUInt64());
+    auto error = trySendDestinationIDIfNeeded(destinationIDOpt, timeout);
     if (error != Error::NoError)
         return error;
 
@@ -184,7 +186,7 @@ Error StreamClientConnection::send(T&& message, ObjectIdentifierGeneric<U, V, W>
             return Error::NoError;
     }
     sendProcessOutOfStreamMessage(WTFMove(*span));
-    return m_connection->send(std::forward<T>(message), destinationID, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+    return m_connection->send(std::forward<T>(message), destinationIDOpt, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
 template<typename T, typename C, typename U, typename V, typename W>
@@ -200,7 +202,7 @@ std::optional<StreamClientConnection::AsyncReplyID> StreamClientConnection::send
 
     static_assert(!T::isSync, "Message is sync!");
     Timeout timeout = defaultTimeout();
-    auto error = trySendDestinationIDIfNeeded(destinationID.toUInt64(), timeout);
+    auto error = trySendDestinationIDIfNeeded(makeOptionalWhereZeroIsNullopt(destinationID.toUInt64()), timeout);
     if (error != Error::NoError)
         return std::nullopt; // FIXME: Propagate errors.
 
@@ -278,7 +280,7 @@ StreamClientConnection::SendSyncResult<T> StreamClientConnection::sendSync(T&& m
 
     static_assert(T::isSync, "Message is not sync!");
     Timeout timeout = defaultTimeout();
-    auto error = trySendDestinationIDIfNeeded(destinationID.toUInt64(), timeout);
+    auto error = trySendDestinationIDIfNeeded(makeOptionalWhereZeroIsNullopt(destinationID.toUInt64()), timeout);
     if (error != Error::NoError)
         return { error };
 
@@ -359,7 +361,7 @@ std::optional<StreamClientConnection::SendSyncResult<T>> StreamClientConnection:
     return { { WTFMove(decoder), WTFMove(*replyArguments) } };
 }
 
-inline Error StreamClientConnection::trySendDestinationIDIfNeeded(uint64_t destinationID, Timeout timeout)
+inline Error StreamClientConnection::trySendDestinationIDIfNeeded(std::optional<uint64_t> destinationID, Timeout timeout)
 {
     if (destinationID == m_currentDestinationID)
         return Error::NoError;

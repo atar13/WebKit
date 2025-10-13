@@ -93,9 +93,9 @@ public:
     void ref() const final { ThreadSafeRefCounted::ref(); }
     void deref() const final { ThreadSafeRefCounted::deref(); }
 
-    void startReceivingMessages(StreamMessageReceiver&, ReceiverName, uint64_t destinationID);
+    void startReceivingMessages(StreamMessageReceiver&, ReceiverName, std::optional<uint64_t> destinationID);
     // Stops the message receipt. Note: already received messages might still be delivered.
-    void stopReceivingMessages(ReceiverName, uint64_t destinationID);
+    void stopReceivingMessages(ReceiverName, std::optional<uint64_t> destinationID);
 
     Connection& connection() { return m_connection; }
     Ref<Connection> protectedConnection() { return m_connection; }
@@ -157,7 +157,7 @@ private:
     Lock m_receiversLock;
     using ReceiversMap = HashMap<std::pair<uint8_t, uint64_t>, Ref<StreamMessageReceiver>>;
     ReceiversMap m_receivers WTF_GUARDED_BY_LOCK(m_receiversLock);
-    uint64_t m_currentDestinationID { 0 };
+    std::optional<uint64_t> m_currentDestinationID { std::nullopt };
     Semaphore m_clientWaitSemaphore;
     bool m_isProcessingStreamMessage { false };
     bool m_didReceiveInvalidMessage { false };

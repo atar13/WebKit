@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "MessageReceiveQueueMap.h"
+#include "Platform/IPC/Connection.h"
 #include <wtf/text/TextStream.h>
 
 namespace IPC {
@@ -70,7 +71,7 @@ MessageReceiveQueue* MessageReceiveQueueMap::get(const Decoder& message) const
         [](MessageReceiveQueue* queue) { return queue; }
     );
 
-    if (message.isValid() && QueueMap::isValidKey(std::make_pair(static_cast<uint8_t>(message.messageReceiverName()), message.destinationID()))) {
+    if (message.isValid() && QueueMap::isValidKey(std::make_pair(static_cast<uint8_t>(message.messageReceiverName()), convertToRawValue<uint64_t>(message.destinationID())))) {
         uint8_t receiverName = static_cast<uint8_t>(message.messageReceiverName());
         {
             auto it = m_anyIDQueues.find(receiverName);
@@ -78,7 +79,7 @@ MessageReceiveQueue* MessageReceiveQueueMap::get(const Decoder& message) const
                 return WTF::visit(queueExtractor, it->value);
         }
         {
-            auto it = m_queues.find(std::make_pair(receiverName, message.destinationID()));
+            auto it = m_queues.find(std::make_pair(receiverName, convertToRawValue<uint64_t>(message.destinationID())));
             if (it != m_queues.end())
                 return WTF::visit(queueExtractor, it->value);
         }

@@ -136,7 +136,7 @@ private:
     void runOrDelayTaskForImport(Function<void()>&& task);
 
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final { return 0; }
+    std::optional<uint64_t> messageSenderDestinationID() const final { return std::nullopt; }
 
     void setSWOriginTableSharedMemory(WebCore::SharedMemory::Handle&&);
     void setSWOriginTableIsImported();

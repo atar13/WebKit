@@ -99,7 +99,7 @@ private:
 
     // MessageSender.
     IPC::Connection* messageSenderConnection() const override;
-    uint64_t messageSenderDestinationID() const override;
+    std::optional<uint64_t> messageSenderDestinationID() const override;
 
 private:
     const Ref<NetworkLoad> m_networkLoad;

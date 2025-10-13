@@ -29,6 +29,7 @@
 #include "MessageNames.h"
 #include <WebCore/PlatformExportMacros.h>
 #include <WebCore/SharedBuffer.h>
+#include <optional>
 #include <wtf/Forward.h>
 #include <wtf/MallocSpan.h>
 #include <wtf/OptionSet.h>
@@ -52,7 +53,7 @@ template<typename, typename> struct ArgumentCoder;
 class Encoder final {
     WTF_MAKE_TZONE_ALLOCATED(Encoder);
 public:
-    Encoder(MessageName, uint64_t destinationID);
+    Encoder(MessageName, std::optional<uint64_t> destinationID);
     ~Encoder();
 
     Encoder(const Encoder&) = delete;
@@ -62,7 +63,7 @@ public:
 
     ReceiverName messageReceiverName() const { return receiverName(m_messageName); }
     MessageName messageName() const { return m_messageName; }
-    uint64_t destinationID() const { return m_destinationID; }
+    std::optional<uint64_t> destinationID() const { return m_destinationID; }
 
     bool isSyncMessage() const { return messageIsSync(messageName()); }
 
@@ -116,7 +117,7 @@ private:
     void freeBufferIfNecessary();
 
     MessageName m_messageName;
-    uint64_t m_destinationID;
+    std::optional<uint64_t> m_destinationID;
 
 #if OS(DARWIN)
     MallocSpan<uint8_t, WTF::Mmap> m_outOfLineBuffer;

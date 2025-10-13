@@ -140,7 +140,7 @@ private:
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final;
+    std::optional<uint64_t> messageSenderDestinationID() const final;
     
     // PaymentAuthorizationPresenter::Client
     void presenterDidAuthorizePayment(PaymentAuthorizationPresenter&, const WebCore::Payment&) final;

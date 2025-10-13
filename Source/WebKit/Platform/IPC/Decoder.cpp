@@ -29,6 +29,9 @@
 #include "ArgumentCoders.h"
 #include "Logging.h"
 #include "MessageFlags.h"
+#include "Platform/IPC/Connection.h"
+#include <cstdint>
+#include <optional>
 #include <stdio.h>
 #include <wtf/MallocSpan.h>
 #include <wtf/ObjectIdentifier.h>
@@ -100,7 +103,7 @@ Decoder::Decoder(std::span<const uint8_t> buffer, BufferDeallocator&& bufferDeal
         markInvalid();
         return;
     }
-    m_destinationID = WTFMove(*destinationID);
+    m_destinationID = makeOptionalWhereZeroIsNullopt(*destinationID);
     if (messageIsSync(m_messageName)) {
         auto syncRequestID = decode<SyncRequestID>();
         if (!syncRequestID) [[unlikely]]
@@ -109,14 +112,14 @@ Decoder::Decoder(std::span<const uint8_t> buffer, BufferDeallocator&& bufferDeal
     }
 }
 
-Decoder::Decoder(std::span<const uint8_t> stream, uint64_t destinationID)
+Decoder::Decoder(std::span<const uint8_t> stream, std::optional<uint64_t> destinationID)
     : m_buffer { stream }
     , m_bufferPosition { m_buffer.begin() }
     , m_bufferDeallocator { nullptr }
     , m_destinationID { destinationID }
 {
     // 0 is a valid destinationID but we can at least reject -1 which is the HashTable deleted value.
-    if (destinationID && !WTF::ObjectIdentifierGenericBase<uint64_t>::isValidIdentifier(destinationID)) {
+    if (destinationID && !WTF::ObjectIdentifierGenericBase<uint64_t>::isValidIdentifier(*destinationID)) {
         markInvalid();
         return;
     }

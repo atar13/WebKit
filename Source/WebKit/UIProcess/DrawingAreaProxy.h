@@ -145,7 +145,7 @@ public:
     bool sendMessage(UniqueRef<IPC::Encoder>&&, OptionSet<IPC::SendOption>) final;
     bool sendMessageWithAsyncReply(UniqueRef<IPC::Encoder>&&, AsyncReplyHandler, OptionSet<IPC::SendOption>) final;
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final;
+    std::optional<uint64_t> messageSenderDestinationID() const final;
 
     virtual void addRemotePageDrawingAreaProxy(RemotePageDrawingAreaProxy&) { }
     virtual void removeRemotePageDrawingAreaProxy(RemotePageDrawingAreaProxy&) { }

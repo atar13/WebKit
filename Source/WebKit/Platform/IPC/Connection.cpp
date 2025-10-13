@@ -33,6 +33,7 @@
 #include "MessageReceiveQueues.h"
 #include "WorkQueueMessageReceiver.h"
 #include <memory>
+#include <optional>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
@@ -97,7 +98,7 @@ public:
     bool processIncomingMessage(Connection& connectionForLockCheck, UniqueRef<Decoder>&) WTF_REQUIRES_LOCK(connectionForLockCheck.m_incomingMessagesLock);
 
     // Dispatch pending messages that should be dispatched while waiting for a sync reply.
-    void dispatchMessages(Function<void(MessageName, uint64_t)>&& willDispatchMessage = { });
+    void dispatchMessages(Function<void(MessageName, std::optional<uint64_t>)>&& willDispatchMessage = { });
 
     // Dispatch pending messages that should be dispatched while waiting for a sync reply,
     // up until the message with the provided identifier.
@@ -233,7 +234,7 @@ bool Connection::SyncMessageState::processIncomingMessage(Connection& connection
     return true;
 }
 
-void Connection::SyncMessageState::dispatchMessages(Function<void(MessageName, uint64_t)>&& willDispatchMessage)
+void Connection::SyncMessageState::dispatchMessages(Function<void(MessageName, std::optional<uint64_t>)>&& willDispatchMessage)
 {
     assertIsCurrent(*m_dispatcher.get());
     {
@@ -419,9 +420,9 @@ void Connection::removeMessageReceiveQueue(const ReceiverMatcher& receiverMatche
     m_receiveQueues.remove(receiverMatcher);
 }
 
-void Connection::addWorkQueueMessageReceiver(ReceiverName receiverName, WorkQueue& workQueue, WorkQueueMessageReceiverBase& receiver, uint64_t destinationID)
+void Connection::addWorkQueueMessageReceiver(ReceiverName receiverName, WorkQueue& workQueue, WorkQueueMessageReceiverBase& receiver, std::optional<uint64_t> destinationID)
 {
-    auto receiverMatcher = ReceiverMatcher::createWithZeroAsAnyDestination(receiverName, destinationID);
+    ReceiverMatcher receiverMatcher(receiverName, destinationID);
 
     auto receiveQueue = makeUnique<WorkQueueMessageReceiverQueue>(workQueue, receiver);
     Locker incomingMessagesLocker { m_incomingMessagesLock };
@@ -429,23 +430,23 @@ void Connection::addWorkQueueMessageReceiver(ReceiverName receiverName, WorkQueu
     m_receiveQueues.add(WTFMove(receiveQueue), receiverMatcher);
 }
 
-void Connection::removeWorkQueueMessageReceiver(ReceiverName receiverName, uint64_t destinationID)
+void Connection::removeWorkQueueMessageReceiver(ReceiverName receiverName, std::optional<uint64_t> destinationID)
 {
-    removeMessageReceiveQueue(ReceiverMatcher::createWithZeroAsAnyDestination(receiverName, destinationID));
+    removeMessageReceiveQueue(ReceiverMatcher(receiverName, destinationID));
 }
 
-void Connection::addMessageReceiver(FunctionDispatcher& dispatcher, MessageReceiver& receiver, ReceiverName receiverName, uint64_t destinationID)
+void Connection::addMessageReceiver(FunctionDispatcher& dispatcher, MessageReceiver& receiver, ReceiverName receiverName, std::optional<uint64_t> destinationID)
 {
-    auto receiverMatcher = ReceiverMatcher::createWithZeroAsAnyDestination(receiverName, destinationID);
+    ReceiverMatcher receiverMatcher(receiverName, destinationID);
     auto receiveQueue = makeUnique<FunctionDispatcherQueue>(dispatcher, receiver);
     Locker incomingMessagesLocker { m_incomingMessagesLock };
     enqueueMatchingMessagesToMessageReceiveQueue(*receiveQueue, receiverMatcher);
     m_receiveQueues.add(WTFMove(receiveQueue), receiverMatcher);
 }
 
-void Connection::removeMessageReceiver(ReceiverName receiverName, uint64_t destinationID)
+void Connection::removeMessageReceiver(ReceiverName receiverName, std::optional<uint64_t> destinationID)
 {
-    removeMessageReceiveQueue(ReceiverMatcher::createWithZeroAsAnyDestination(receiverName, destinationID));
+    removeMessageReceiveQueue(ReceiverMatcher(receiverName, destinationID));
 }
 
 template<typename MessageReceiverType>
@@ -546,7 +547,7 @@ void Connection::invalidate()
     });
 }
 
-auto Connection::createSyncMessageEncoder(MessageName messageName, uint64_t destinationID) -> std::pair<UniqueRef<Encoder>, SyncRequestID>
+auto Connection::createSyncMessageEncoder(MessageName messageName, std::optional<uint64_t> destinationID) -> std::pair<UniqueRef<Encoder>, SyncRequestID>
 {
     auto encoder = makeUniqueRef<Encoder>(messageName, destinationID);
 
@@ -757,7 +758,7 @@ Timeout Connection::timeoutRespectingIgnoreTimeoutsForTesting(Timeout timeout) c
     return m_ignoreTimeoutsForTesting ? Timeout::infinity() : timeout;
 }
 
-auto Connection::waitForMessage(MessageName messageName, uint64_t destinationID, Timeout timeout, OptionSet<WaitForOption> waitForOptions) -> DecoderOrError
+auto Connection::waitForMessage(MessageName messageName, std::optional<uint64_t> destinationID, Timeout timeout, OptionSet<WaitForOption> waitForOptions) -> DecoderOrError
 {
     if (!isValid())
         return makeUnexpected(Error::InvalidConnection);
@@ -826,7 +827,7 @@ auto Connection::waitForMessage(MessageName messageName, uint64_t destinationID,
     while (true) {
         // Handle any messages that are blocked on a response from us.
         bool wasMessageToWaitForAlreadyDispatched = false;
-        m_syncState->dispatchMessages([&](auto nameOfMessageToDispatch, uint64_t destinationOfMessageToDispatch) {
+        m_syncState->dispatchMessages([&](auto nameOfMessageToDispatch, std::optional<uint64_t> destinationOfMessageToDispatch) {
             wasMessageToWaitForAlreadyDispatched |= messageName == nameOfMessageToDispatch && destinationID == destinationOfMessageToDispatch;
         });
 
@@ -1016,7 +1017,7 @@ void Connection::processIncomingSyncReply(UniqueRef<Decoder> decoder)
         for (size_t i = m_pendingSyncReplies.size(); i > 0; --i) {
             PendingSyncReply& pendingSyncReply = m_pendingSyncReplies[i - 1];
 
-            if (pendingSyncReply.syncRequestID->toUInt64() != decoder->destinationID())
+            if (makeOptionalWhereZeroIsNullopt(pendingSyncReply.syncRequestID->toUInt64()) != decoder->destinationID())
                 continue;
 
             ASSERT(!pendingSyncReply.replyDecoder);
@@ -1077,7 +1078,10 @@ void Connection::processIncomingMessage(UniqueRef<Decoder> message)
         return;
 
     if (message->isAsyncReplyMessage()) {
-        if (auto replyHandlerWithDispatcher = takeAsyncReplyHandlerWithDispatcherWithLockHeld(AtomicObjectIdentifier<AsyncReplyIDType>(message->destinationID()))) {
+        if (message->destinationID().value()) {
+            WTFLogAlways("[atar] isAsyncReplyMessage with destination ID %llu", message->destinationID().value());
+        } 
+        if (auto replyHandlerWithDispatcher = takeAsyncReplyHandlerWithDispatcherWithLockHeld(AtomicObjectIdentifier<AsyncReplyIDType>(message->destinationID().value_or(0)))) {
             replyHandlerWithDispatcher(this, message.moveToUniquePtr());
             return;
         }
@@ -1380,7 +1384,7 @@ void Connection::dispatchMessage(Decoder& decoder)
     RefPtr client = m_client.get();
     RELEASE_ASSERT(client);
     if (decoder.isAsyncReplyMessage()) {
-        auto handler = takeAsyncReplyHandler(AtomicObjectIdentifier<AsyncReplyIDType>(decoder.destinationID()));
+        auto handler = takeAsyncReplyHandler(AtomicObjectIdentifier<AsyncReplyIDType>(decoder.destinationID().value_or(0)));
         if (!handler) {
             markCurrentlyDispatchedMessageAsInvalid();
 #if ENABLE(IPC_TESTING_API)

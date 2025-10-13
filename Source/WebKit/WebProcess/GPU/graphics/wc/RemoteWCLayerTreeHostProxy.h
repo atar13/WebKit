@@ -62,7 +62,7 @@ private:
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
-    uint64_t messageSenderDestinationID() const override;
+    std::optional<uint64_t> messageSenderDestinationID() const override;
 
     ThreadSafeWeakPtr<GPUProcessConnection> m_gpuProcessConnection;
     WCLayerTreeHostIdentifier m_wcLayerTreeHostIdentifier { WCLayerTreeHostIdentifier::generate() };

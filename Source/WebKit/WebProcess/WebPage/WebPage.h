@@ -65,6 +65,7 @@
 #include <WebCore/UserScriptTypes.h>
 #include <WebCore/WebCoreKeyboardUIMode.h>
 #include <memory>
+#include <optional>
 #include <pal/HysteresisActivity.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/CompletionHandler.h>
@@ -1806,7 +1807,7 @@ public:
 
 #if ENABLE(IPC_TESTING_API)
     bool ipcTestingAPIEnabled() const { return m_ipcTestingAPIEnabled; }
-    uint64_t webPageProxyID() const { return messageSenderDestinationID(); }
+    std::optional<uint64_t> webPageProxyID() const { return messageSenderDestinationID(); }
     VisitedLinkTableIdentifier visitedLinkTableID() const { return m_visitedLinkTableID; }
 #endif
 
@@ -2100,7 +2101,7 @@ private:
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
-    uint64_t messageSenderDestinationID() const override;
+    std::optional<uint64_t> messageSenderDestinationID() const override;
 
     void platformInitialize(const WebPageCreationParameters&);
     void platformDetach();

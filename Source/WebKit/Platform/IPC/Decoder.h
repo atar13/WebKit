@@ -30,6 +30,7 @@
 #include "ReceiverMatcher.h"
 #include "SyncRequestID.h"
 #include <memory>
+#include <optional>
 #include <span>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/Function.h>
@@ -84,7 +85,7 @@ public:
     static std::unique_ptr<Decoder> create(std::span<const uint8_t> buffer, Vector<Attachment>&&);
     using BufferDeallocator = Function<void(std::span<const uint8_t>)>;
     static std::unique_ptr<Decoder> create(std::span<const uint8_t> buffer, BufferDeallocator&&, Vector<Attachment>&&);
-    Decoder(std::span<const uint8_t> stream, uint64_t destinationID);
+    Decoder(std::span<const uint8_t> stream, std::optional<uint64_t> destinationID);
 
     ~Decoder();
 
@@ -96,7 +97,7 @@ public:
 
     ReceiverName messageReceiverName() const { return receiverName(m_messageName); }
     MessageName messageName() const { return m_messageName; }
-    uint64_t destinationID() const { return m_destinationID; }
+    std::optional<uint64_t> destinationID() const { return m_destinationID; }
     SyncRequestID syncRequestID() const { ASSERT(m_syncRequestID); return *m_syncRequestID; }
     bool matches(const ReceiverMatcher& matcher) const { return matcher.matches(messageReceiverName(), destinationID()); }
 
@@ -201,7 +202,7 @@ private:
     AllowedClassHashSet m_allowedClasses;
 #endif
 
-    uint64_t m_destinationID;
+    std::optional<uint64_t> m_destinationID;
     Markable<SyncRequestID> m_syncRequestID;
 
     Vector<uint32_t> m_indicesOfObjectsFailingDecoding;

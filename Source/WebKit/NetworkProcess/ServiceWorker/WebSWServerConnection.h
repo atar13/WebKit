@@ -182,7 +182,7 @@ private:
     URL clientURLFromIdentifier(WebCore::ServiceWorkerOrClientIdentifier);
 
     IPC::Connection* messageSenderConnection() const final { return m_contentConnection.ptr(); }
-    uint64_t messageSenderDestinationID() const final { return 0; }
+    std::optional<uint64_t> messageSenderDestinationID() const final { return std::nullopt; }
     
     template<typename U> static void sendToContextProcess(WebCore::SWServerToContextConnection&, U&& message);
     NetworkProcess& networkProcess();

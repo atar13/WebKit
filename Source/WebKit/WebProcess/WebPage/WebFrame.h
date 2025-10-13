@@ -282,7 +282,7 @@ private:
     WebFrame(WebPage&, WebCore::FrameIdentifier);
 
     IPC::Connection* messageSenderConnection() const final;
-    uint64_t messageSenderDestinationID() const final;
+    std::optional<uint64_t> messageSenderDestinationID() const final;
 
     void setLayerHostingContextIdentifier(WebCore::LayerHostingContextIdentifier identifier) { m_layerHostingContextIdentifier = identifier; }
     void updateLocalFrameSize(WebCore::LocalFrame&, WebCore::IntSize);
