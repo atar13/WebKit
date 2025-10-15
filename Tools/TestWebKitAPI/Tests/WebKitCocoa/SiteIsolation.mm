@@ -5577,4 +5577,49 @@ TEST(SiteIsolation, AlternateRequest)
     EXPECT_WK_STREQ([webView _test_waitForAlert], "https://webkit.org/webkit2");
 }
 
+TEST(SiteIsolation, MainPageModifiesChildIframeDOM)
+{
+    auto mainPageHTML = "<script>"
+    "    loadedAboutBlank = function() { "
+    "      i.onload = null;"
+    "      i.contentWindow.document.body.appendChild("
+    "        i.contentWindow.document.createTextNode('some text')"
+    "      );"
+    "    loadedAppleCom = function() {"
+    "      i.onload = loadedAboutBlank;"
+    "      i.src = 'about:blank';"
+    "    };"
+    "let i = document.createElement('iframe');"
+    "document.body.appendChild(i);"
+    "i.onload = loadedAppleCom;"
+    "i.src = 'https://apple.com';"_s;
+
+
+    HTTPServer server({
+        { "/main_page"_s, { mainPageHTML } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/main_page"]]];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "done");
+
+    auto mainFrame = [webView mainFrame];
+    auto childFrame = mainFrame.childFrames.firstObject;
+    pid_t mainFramePid = mainFrame.info._processIdentifier;
+    pid_t childFramePid = childFrame.info._processIdentifier;
+    EXPECT_NE(mainFramePid, 0);
+    EXPECT_NE(childFramePid, 0);
+    EXPECT_EQ(mainFramePid, childFramePid);
+    EXPECT_WK_STREQ(mainFrame.info.securityOrigin.host, "example.com");
+    EXPECT_WK_STREQ(childFrame.info.securityOrigin.host, "example.com");
+
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://example.com"_s,
+            { { "RemoteFrame"_s } }
+        },
+        { "RemoteFrame"_s,
+            { { "https://example.com"_s } }
+        }
+    });
+}
+
 }

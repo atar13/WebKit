@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script src="../../resources/js-test.js"></script>
+<div id="container"></div>
+<script>
+description('Test modifying DOM after navigating to different origin and back');
+
+
+// Once we get back to about:blank, check that we can modify DOM
+loadedAboutBlank = function() {
+  debug("loaded about:blank");
+  i.onload = null;
+
+  debug("modifying about:blank DOM");
+  // shouldNotThrow(`
+  //     i.contentWindow.document.body.appendChild(
+  //         i.contentWindow.document.createTextNode('some text')
+  //     );
+  // `);
+
+  // shouldBe('i.contentWindow.document.body.childNodes.length', '1');
+  shouldBe('i.contentWindow.document.body.firstChild.textContent', '"some text"');
+
+  finishJSTest();
+}
+
+loadedExampleCom = function() {
+    debug("loaded example.com");
+    i.onload = loadedAboutBlank;
+
+    debug("navigating to about:blank");
+    i.src = 'about:blank';
+};
+
+
+let i = document.createElement('iframe');
+document.body.appendChild(i);
+i.onload = loadedExampleCom
+
+// Navigate to different origin, then back to about:blank
+i.src = 'https://example.com';
+
+</script>
+</body>
+</html>
