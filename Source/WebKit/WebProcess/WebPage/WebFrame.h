@@ -121,6 +121,7 @@ public:
     RefPtr<WebCore::Frame> protectedCoreFrame() const;
 
     void createProvisionalFrame(ProvisionalFrameCreationParameters&&);
+    void createLocalFrameImmediately(ProvisionalFrameCreationParameters&&);
     void commitProvisionalFrame();
     void destroyProvisionalFrame();
     void loadDidCommitInAnotherProcess(std::optional<WebCore::LayerHostingContextIdentifier>);
@@ -266,6 +267,8 @@ public:
 
     std::optional<WebCore::ResourceResponse> resourceResponseForURL(const URL&) const;
 
+    void createFrameAndImmediatelyCommit(ProvisionalFrameCreationParameters&&);
+    RefPtr<WebCore::LocalFrame> createLocalFrame(const std::optional<ProvisionalFrameCreationParameters>&, const std::optional<ProvisionalFrameCreationParameters>&);
 private:
     WebFrame(WebPage&, WebCore::FrameIdentifier);
 

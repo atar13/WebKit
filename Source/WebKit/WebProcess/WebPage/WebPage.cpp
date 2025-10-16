@@ -82,6 +82,7 @@
 #include "ShareableBitmapUtilities.h"
 #include "SharedBufferReference.h"
 #include "TextRecognitionUpdateResult.h"
+#include "UIProcess/ProvisionalFrameProxy.h"
 #include "UserMediaPermissionRequestManager.h"
 #include "ViewGestureGeometryCollector.h"
 #include "VisitedLinkTableController.h"
@@ -175,6 +176,7 @@
 #include "WebWheelEvent.h"
 #include "WebsiteDataStoreParameters.h"
 #include "WebsitePoliciesData.h"
+#include "wtf/TypeCasts.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSCJSValue.h>

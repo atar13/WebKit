@@ -5331,6 +5331,25 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         loadParameters.isPerformingHTTPFallback = isPerformingHTTPFallback == IsPerformingHTTPFallback::Yes;
         loadParameters.isHandledByAboutSchemeHandler = m_aboutSchemeHandler->canHandleURL(loadParameters.request.url());
 
+        
+        if (navigation.currentRequest().url().isAboutBlank()) {
+            WTFLogAlways("[atar] (%s) Sending LoadRequest message to load about:blank in a new process (%llu). oldProcess was %llu", __FUNCTION__, newProcess->coreProcessIdentifier().toRawValue(), frame.process().coreProcessIdentifier().toRawValue());
+            loadParameters.originatingFrame = navigation.originatingFrameInfo();
+            // frame.process().send(Messages::WebPage::LoadDidCommitInAnotherProcess(frame.frameID(), std::nullopt), webPageIDInProcess(frame.process()));
+            // newProcess->send(Messages::WebPage::LoadRequest(WTFMove(loadParameters)), webPageIDInProcess(newProcess));
+            // frame.prepareForProvisionalLoadInProcess(newProcess, navigation, m_browsingContextGroup, [
+            //     loadParameters = WTFMove(loadParameters),
+            //     newProcess = newProcess.copyRef(),
+            //     preventProcessShutdownScope = newProcess->shutdownPreventingScope()
+            // ] (PageIdentifier pageID) mutable {
+            //     newProcess->send(Messages::WebPage::LoadRequest(WTFMove(loadParameters)), pageID);
+            // });
+            
+            frame.createLocalFrameImmediately(newProcess, navigation, m_browsingContextGroup);
+            newProcess->send(Messages::WebPage::LoadRequest(WTFMove(loadParameters)), webPageIDInProcess(newProcess));
+            return;
+        }
+
         if (navigation.isInitialFrameSrcLoad())
             frame.setIsPendingInitialHistoryItem(true);
 
@@ -6868,9 +6887,15 @@ void WebPageProxy::didStartProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& 
         m_generatePageLoadTimingTimer.stop();
     }
 
+    RefPtr<API::Navigation> navigation;
+    if (navigationID)
+        navigation = m_navigationState->navigation(*navigationID);
+
     // If a provisional load has since been started in another process, ignore this message.
     if (protectedPreferences()->siteIsolationEnabled()) {
-        if (frame->provisionalLoadProcess().coreProcessIdentifier() != process->coreProcessIdentifier()) {
+        WTFLogAlways("[atar] Current frame provisional process identifier: %llu, Current WebPageProxy process identifier %llu", frame->provisionalLoadProcess().coreProcessIdentifier().toRawValue(),  process->coreProcessIdentifier().toRawValue());
+        // if (frame->provisionalLoadProcess().coreProcessIdentifier() != process->coreProcessIdentifier()) {
+        if (frame->provisionalLoadProcess().coreProcessIdentifier() != process->coreProcessIdentifier() && !url.isAboutBlank()) {
             // FIXME: The API test ProcessSwap.DoSameSiteNavigationAfterCrossSiteProvisionalLoadStarted
             // is probably not handled correctly with site isolation on.
             return;
@@ -6888,7 +6913,7 @@ void WebPageProxy::didStartProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& 
     }
 
     // FIXME: We should message check that navigationID is not zero here, but it's currently zero for some navigations through the back/forward cache.
-    RefPtr<API::Navigation> navigation;
+    // RefPtr<API::Navigation> navigation;
     if (frame->isMainFrame() && navigationID)
         navigation = m_navigationState->navigation(*navigationID);
 
@@ -7251,6 +7276,10 @@ void WebPageProxy::didCommitLoadForFrame(IPC::Connection& connection, FrameIdent
         frame->commitProvisionalFrame(connection, frameID, WTFMove(frameInfo), WTFMove(request), navigationID, WTFMove(mimeType), frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, wasPrivateRelayed, WTFMove(proxyName), source, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData);
         return;
     }
+    // if (frame->isPendingImmediateLoad()) {
+    //     frame->commitImmediateLoadFrame(connection, frameID, WTFMove(frameInfo), WTFMove(request), navigationID, WTFMove(mimeType), frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, wasPrivateRelayed, WTFMove(proxyName), source, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData);
+    //     return;
+    // }
 
     WEBPAGEPROXY_RELEASE_LOG(Loading, "didCommitLoadForFrame: frameID=%" PRIu64 ", isMainFrame=%d", frameID.toUInt64(), frame->isMainFrame());
 
@@ -7307,7 +7336,7 @@ void WebPageProxy::didCommitLoadForFrame(IPC::Connection& connection, FrameIdent
     protectedPageClient->resetSecureInputState();
 #endif
 
-    frame->didCommitLoad(mimeType, certificateInfo, containsPluginDocument);
+    frame->didCommitLoad(mimeType, certificateInfo, containsPluginDocument, frameID);
 
     if (frame->isMainFrame()) {
         std::optional<WebCore::PrivateClickMeasurement> privateClickMeasurement;
@@ -8055,6 +8084,11 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
     if (frame.isMainFrame() && m_mainFrame)
         currentMainFrameIdentifier = m_mainFrame->frameID();
     Ref navigationAction = API::NavigationAction::create(WTFMove(navigationActionData), sourceFrameInfo.get(), destinationFrameInfo.ptr(), String(), ResourceRequest(request), originalRequest.url(), shouldOpenAppLinks, WTFMove(userInitiatedActivity), mainFrameNavigation.get(), currentMainFrameIdentifier);
+
+    // if (protectedPreferences()->siteIsolationEnabled() && navigation->currentRequest().url().isAboutBlank()) {
+    //     WTFLogAlways("[atar] navigating to %s with site isolation enabled", navigation->currentRequest().url().string().utf8().data());
+    //     return receivedPolicyDecision(PolicyAction::LoadWillContinueInAnotherProcess, RefPtr { m_navigationState->navigation(*navigationID) }.get(), nullptr, WTFMove(navigationAction), WillContinueLoadInNewProcess::Yes, std::nullopt, std::nullopt, WTFMove(completionHandler));
+    // }
 
 #if ENABLE(CONTENT_FILTERING)
     if (frame.didHandleContentFilterUnblockNavigation(request)) {

@@ -2085,6 +2085,16 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
             });
             return;
         }
+
+    }
+
+    if (siteIsolationEnabled && !frame.isMainFrame() && targetURL.isAboutBlank()) {
+        WTFLogAlways("[atar] %s Navigating to about:blank. previous frame URL is %s and %s originated the request (also could be %s)", __FUNCTION__, frame.url().string().utf8().data(), navigation.originatingFrameInfo()->securityOrigin.toString().utf8().data(), navigation.requesterOrigin().toString().utf8().data());
+      RefPtr navigationOriginatorFrame = WebFrameProxy::webFrame(navigation.originatingFrameInfo()->frameID);
+      WTFLogAlways("[atar] %s Changing about:blank process to process of %s (%llu)", __FUNCTION__, navigationOriginatorFrame->url().string().utf8().data(), navigationOriginatorFrame->process().coreProcessIdentifier().toRawValue());
+        
+      completionHandler(navigationOriginatorFrame->process(), nullptr, "Switching to process that originated navigation."_s);
+      return;
     }
 
     Ref sourceProcess = frame.process();

@@ -42,6 +42,7 @@
 #include "NetworkProcessConnection.h"
 #include "PluginView.h"
 #include "ProvisionalFrameCreationParameters.h"
+#include "Shared/LoadParameters.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
 #include "WebChromeClient.h"
@@ -55,6 +56,9 @@
 #include "WebProcess.h"
 #include "WebRemoteFrameClient.h"
 #include "WebsitePoliciesData.h"
+#include "wtf/ProcessID.h"
+#include "wtf/StdLibExtras.h"
+#include "wtf/URL.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSContextRef.h>
 #include <JavaScriptCore/JSGlobalObjectInlines.h>
@@ -104,6 +108,7 @@
 #include <WebCore/SubresourceLoader.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/TextResourceDecoder.h>
+#include <optional>
 #include <wtf/CoroutineUtilities.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -438,27 +443,145 @@ void WebFrame::loadDidCommitInAnotherProcess(std::optional<WebCore::LayerHosting
         ownerElement->scheduleInvalidateStyleAndLayerComposition();
 }
 
-void WebFrame::createProvisionalFrame(ProvisionalFrameCreationParameters&& parameters)
-{
+RefPtr<LocalFrame> WebFrame::createLocalFrame(const std::optional<ProvisionalFrameCreationParameters>& parameters, const std::optional<ProvisionalFrameCreationParameters>& immediateParameters) {
     RefPtr remoteFrame = coreRemoteFrame();
     if (!remoteFrame) {
         ASSERT_NOT_REACHED();
-        return;
+        return nullptr;
     }
 
     RefPtr corePage = remoteFrame->page();
     if (!corePage) {
         ASSERT_NOT_REACHED();
-        return;
+        return nullptr;
     }
 
-    RefPtr parent = remoteFrame->tree().parent();
     auto clientCreator = [this, protectedThis = Ref { *this }] (auto& localFrame, auto& frameLoader) mutable {
         return makeUniqueRefWithoutRefCountedCheck<WebLocalFrameLoaderClient>(localFrame, frameLoader, WTFMove(protectedThis), makeInvalidator());
     };
-    auto localFrame = parent ? LocalFrame::createProvisionalSubframe(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, parameters.scrollingMode, *parent, Ref { remoteFrame->frameTreeSyncData() }) : LocalFrame::createMainFrame(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, nullptr, Ref { remoteFrame->frameTreeSyncData() });
+
+    RefPtr parent = remoteFrame->tree().parent();
+
+    if (parent) {
+        if (parameters) {
+            return LocalFrame::createProvisionalSubframe(*corePage, WTFMove(clientCreator), m_frameID, parameters->effectiveSandboxFlags, parameters->scrollingMode, *parent, Ref { remoteFrame->frameTreeSyncData() });
+        } else {
+            // TODO: add check for optional
+            // TODO: wanted to call newCreateSubframe but can't figure out how to get HTMLOwnerElement
+            // return LocalFrame::newCreateSubframe(*corePage, WTFMove(clientCreator), m_frameID, immediateParameters->effectiveSandboxFlags, *parent, Ref { remoteFrame->frameTreeSyncData() });
+            return LocalFrame::createProvisionalSubframe(*corePage, WTFMove(clientCreator), m_frameID, immediateParameters->effectiveSandboxFlags, immediateParameters->scrollingMode, *parent, Ref { remoteFrame->frameTreeSyncData() });
+        }
+    } else {
+       return LocalFrame::createMainFrame(*corePage, WTFMove(clientCreator), m_frameID, parameters->effectiveSandboxFlags, nullptr, Ref { remoteFrame->frameTreeSyncData() });
+    }
+}
+
+void WebFrame::createFrameAndImmediatelyCommit(ProvisionalFrameCreationParameters&& parameters)
+{
+    createProvisionalFrame(WTFMove(parameters));
+    commitProvisionalFrame();
+    return;
+    // WTFLogAlways("[atar] createFrameAndImmediatelyCommit: Starting for frameID %llu in process %i", frameID().toRawValue(), getCurrentProcessID());
+    
+    // RefPtr remoteFrame = coreRemoteFrame();
+    // if (!remoteFrame) {
+    //     WTFLogAlways("[atar] createFrameAndImmediatelyCommit: No remote frame found");
+    //     ASSERT_NOT_REACHED();
+    //     return;
+    // }
+
+    // WTFLogAlways("[atar] createFrameAndImmediatelyCommit: Found remote frame with ID %llu", remoteFrame->frameID().toRawValue());
+
+    // RefPtr corePage = remoteFrame->page();
+    // if (!corePage) {
+    //     WTFLogAlways("[atar] createFrameAndImmediatelyCommit: No core page found");
+    //     ASSERT_NOT_REACHED();
+    //     return;
+    // }
+
+    // // Store references before any modifications
+    // RefPtr parent = remoteFrame->tree().parent();
+    // RefPtr ownerElement = remoteFrame->ownerElement();
+    // RefPtr ownerRenderer = remoteFrame->ownerRenderer();
+    // auto remoteFrameID = remoteFrame->frameID();
+
+    // WTFLogAlways("[atar] createFrameAndImmediatelyCommit: About to create local frame while preserving parent relationship");
+    
+    // // Create the local frame FIRST while parent relationship is intact
+    // auto localFrame = createLocalFrame(std::nullopt, parameters);
+    // if (!localFrame) {
+    //     WTFLogAlways("[atar] createFrameAndImmediatelyCommit: Failed to create local frame");
+    //     return;
+    // }
+
+    // WTFLogAlways("[atar] createFrameAndImmediatelyCommit: Created local frame with ID %llu", localFrame->frameID().toRawValue());
+
+    // // Now disconnect and cleanup the remote frame AFTER local frame creation
+    // WTFLogAlways("[atar] createFrameAndImmediatelyCommit: About to disconnect and cleanup remote frame %llu", remoteFrameID.toRawValue());
+    
+    // remoteFrame->disconnectOwnerElement();
+    
+    // // Take the invalidator to trigger cleanup
+    // auto invalidator = downcast<WebRemoteFrameClient>(remoteFrame->client()).takeFrameInvalidator();
+
+    // m_frameIDBeforeProvisionalNavigation = parameters.frameIDBeforeProvisionalNavigation;
+
+    // localFrame->init();
+    // localFrame->protectedDocument()->setURL(URL { aboutBlankURL() });
+
+    // if (parameters.layerHostingContextIdentifier)
+    //     setLayerHostingContextIdentifier(*parameters.layerHostingContextIdentifier);
+    // if (parameters.initialSize)
+    //     updateLocalFrameSize(*localFrame, *parameters.initialSize);
+
+    // if (RefPtr frame = WebProcess::singleton().webFrame(std::exchange(m_frameIDBeforeProvisionalNavigation, { }))) {
+    //     if (RefPtr coreFrame = frame->coreFrame())
+    //         remoteFrame->takeWindowProxyAndOpenerFrom(*coreFrame);
+    // }
+
+    // WTFLogAlways("[atar] createFrameAndImmediatelyCommit: About to replace remote frame in tree and finalize");
+
+    // if (parent)
+    //     parent->tree().replaceChild(*remoteFrame, *localFrame);
+
+    // if (remoteFrame->isMainFrame())
+    //     corePage->setMainFrame(*localFrame);
+    
+    // m_coreFrame = localFrame.get();
+    // remoteFrame->setView(nullptr);
+    // localFrame->tree().setSpecifiedName(remoteFrame->tree().specifiedName());
+
+    // if (ownerRenderer)
+    //     ownerRenderer->setWidget(localFrame->view());
+
+    // localFrame->setOwnerElement(ownerElement.get());
+    // localFrame->takeWindowProxyAndOpenerFrom(*remoteFrame);
+    // if (RefPtr document = localFrame->document())
+    //     document->didBecomeCurrentDocumentInFrame();
+
+    // if (corePage->focusController().focusedFrame() == remoteFrame.get())
+    //     corePage->focusController().setFocusedFrame(localFrame.get(), FocusController::BroadcastFocusedFrame::No);
+
+    // if (ownerElement)
+    //     ownerElement->scheduleInvalidateStyleAndLayerComposition();
+
+    // // Release the invalidator to complete cleanup
+    // invalidator.release();
+    
+    // WTFLogAlways("[atar] createFrameAndImmediatelyCommit: Completed successfully for frameID %llu", localFrame->frameID().toRawValue());
+}
+
+void WebFrame::createLocalFrameImmediately(ProvisionalFrameCreationParameters&& parameters)
+{
+    createFrameAndImmediatelyCommit(WTFMove(parameters));
+}
+
+void WebFrame::createProvisionalFrame(ProvisionalFrameCreationParameters&& parameters)
+{
+    auto localFrame = createLocalFrame(parameters, std::nullopt);
+
     ASSERT(!m_provisionalFrame);
-    m_provisionalFrame = localFrame.ptr();
+    m_provisionalFrame = localFrame.get();
     m_frameIDBeforeProvisionalNavigation = parameters.frameIDBeforeProvisionalNavigation;
     localFrame->init();
     localFrame->protectedDocument()->setURL(URL { aboutBlankURL() });
@@ -466,7 +589,7 @@ void WebFrame::createProvisionalFrame(ProvisionalFrameCreationParameters&& param
     if (parameters.layerHostingContextIdentifier)
         setLayerHostingContextIdentifier(*parameters.layerHostingContextIdentifier);
     if (parameters.initialSize)
-        updateLocalFrameSize(localFrame, *parameters.initialSize);
+        updateLocalFrameSize(*localFrame, *parameters.initialSize);
 }
 
 void WebFrame::destroyProvisionalFrame()
@@ -1558,5 +1681,55 @@ void WebFrame::findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirec
 
     completionHandler(foundElementInRemoteFrame);
 }
+// void WebFrame::createLocalFrame(ProvisionalFrameCreationParameters&& parameters)
+// {
+//     WTFLogAlways("[atar] (%s) Creating Local Frame in process %i for frameID %lld", __FUNCTION__, getCurrentProcessID(), parameters.frameID.toRawValue());
+//     RefPtr remoteFrame = coreRemoteFrame();
+//     if (!remoteFrame) {
+//         ASSERT_NOT_REACHED();
+//         return;
+//     }
+//
+//     RefPtr corePage = remoteFrame->page();
+//     if (!corePage) {
+//         ASSERT_NOT_REACHED();
+//         return;
+//     }
+//
+//     RefPtr parent = remoteFrame->tree().parent();
+//     auto clientCreator = [this, protectedThis = Ref { *this }] (auto& localFrame, auto& frameLoader) mutable {
+//         return makeUniqueRefWithoutRefCountedCheck<WebLocalFrameLoaderClient>(localFrame, frameLoader, WTFMove(protectedThis), makeInvalidator());
+//     };
+//     remoteFrame->disconnectOwnerElement();
+//     // remoteFrame->ownerElement()->clearContentFrame();
+//     auto localFrame = parent ? LocalFrame::createSubframe(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, *remoteFrame->ownerElement(), Ref { remoteFrame->frameTreeSyncData() }) : LocalFrame::createMainFrame(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, nullptr, Ref { remoteFrame->frameTreeSyncData() });
+//     ASSERT(!m_provisionalFrame);
+//     m_provisionalFrame = localFrame.ptr();
+//     m_frameIDBeforeProvisionalNavigation = parameters.frameIDBeforeProvisionalNavigation;
+//     localFrame->init();
+//     localFrame->protectedDocument()->setURL(URL { aboutBlankURL() });
+//
+//     if (parameters.layerHostingContextIdentifier)
+//         setLayerHostingContextIdentifier(*parameters.layerHostingContextIdentifier);
+//     if (parameters.initialSize)
+//         updateLocalFrameSize(localFrame, *parameters.initialSize);
+//
+//     // createProvisionalFrame(WTFMove(parameters));
+//     // commitProvisionalFrame();
+//
+//     // originalRemoteProcess->send(LoadDidCommitInAnotherProcess)
+//
+//     RefPtr webPage = page();
+//     if (!webPage)
+//         return;
+//     // Ref documentLoader { localFrame()->loader().documentLoader() };
+//     // RefPtr localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
+//     // if (!localFrame)
+//     //     return;
+//
+//     // WTFLogAlways("[atar] Notifying UIProcess that WebProcess finished loading a local frame with url: %s", url().string().utf8().data());
+//     // webPage->send(Messages::WebPageProxy::DidCommitLoadForFrame(frameID(), info(), documentLoader->request(), documentLoader->navigationID(), documentLoader->response().mimeType(), false, localFrame->loader().loadType(), certificateInfo, false, false, documentLoader->response().proxyName(), documentLoader->response().source(), localFrame->document()->isPluginDocument(), false, documentLoader->mouseEventPolicy(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+//     webPage->didCommitLoad(this);
+// }
 
 } // namespace WebKit

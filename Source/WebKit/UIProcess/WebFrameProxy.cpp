@@ -41,6 +41,9 @@
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
 #include "RemotePageProxy.h"
+#include "Shared/ProvisionalFrameCreationParameters.h"
+#include "UIProcess/API/APINavigation.h"
+#include "UIProcess/WebProcessProxy.h"
 #include "WebBackForwardListFrameItem.h"
 #include "WebFrameMessages.h"
 #include "WebFramePolicyListenerProxy.h"
@@ -304,8 +307,14 @@ void WebFrameProxy::didFailProvisionalLoad()
         m_navigateCallback({ }, { });
 }
 
-void WebFrameProxy::didCommitLoad(const String& contentType, const WebCore::CertificateInfo& certificateInfo, bool containsPluginDocument)
+void WebFrameProxy::didCommitLoad(const String& contentType, const WebCore::CertificateInfo& certificateInfo, bool containsPluginDocument, FrameIdentifier otherFrameID)
 {
+    WTFLogAlways("[atar]] (%s) WebFrameProxy::didCommitLoad for frameID %llu, provisional %p", __FUNCTION__, frameID().toRawValue(), this->provisionalFrame());
+
+    // if (frameID() == otherFrameID) {
+    //     protectedProcess()->send(Messages::WebPage::LoadDidCommitInAnotherProcess(otherFrameID, m_layerHostingContextIdentifier), *webPageIDInCurrentProcess());
+    // }
+
     m_frameLoadState.didCommitLoad();
 
     m_title = String();
@@ -477,6 +486,26 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, String&&
     m_childFrames.add(WTFMove(child));
 }
 
+void WebFrameProxy::createLocalFrameImmediately(Ref<WebProcessProxy> process, API::Navigation& navigation, BrowsingContextGroup& group) {
+    m_isPendingImmediateLoad = true;
+    
+    Site originatorSite(navigation.originatingFrameInfo()->securityOrigin);
+    RefPtr page = m_page.get();
+
+    m_frameProcess = group.ensureProcessForSite(originatorSite, process, page->protectedPreferences());
+
+    process->send(Messages::WebFrame::CreateLocalFrameImmediately(ProvisionalFrameCreationParameters{
+        frameID(),
+        std::nullopt,
+        layerHostingContextIdentifier(),
+        effectiveSandboxFlags(),
+        scrollingMode(),
+        remoteFrameSize(),
+        }), frameID());
+        // TODO: need to tell old process that it's localframe -> remoteframe
+        // protectedProcess()->send(Messages::WebPage::LoadDidCommitInAnotherProcess(frameID, m_layerHostingContextIdentifier), *webPageIDInCurrentProcess());
+}
+
 void WebFrameProxy::prepareForProvisionalLoadInProcess(WebProcessProxy& process, API::Navigation& navigation, BrowsingContextGroup& group, CompletionHandler<void(WebCore::PageIdentifier)>&& completionHandler)
 {
     if (isMainFrame())
@@ -486,6 +515,12 @@ void WebFrameProxy::prepareForProvisionalLoadInProcess(WebProcessProxy& process,
     RefPtr page = m_page.get();
     // FIXME: Main resource (of main or subframe) request redirects should go straight from the network to UI process so we don't need to make the processes for each domain in a redirect chain. <rdar://116202119>
     RegistrableDomain mainFrameDomain(page->mainFrame()->url());
+
+    if (navigation.currentRequest().url().isAboutBlank() && navigation.originatingFrameInfo().has_value()) {
+        RefPtr openerFrame = WebFrameProxy::webFrame(navigation.originatingFrameInfo().value().frameID);
+        navigationSite = Site(openerFrame->url());
+        updateOpener(openerFrame->frameID());
+    }
 
     m_provisionalFrame = nullptr;
     m_provisionalFrame = makeUnique<ProvisionalFrameProxy>(*this, group.ensureProcessForSite(navigationSite, process, page->protectedPreferences()));
@@ -504,6 +539,19 @@ void WebFrameProxy::commitProvisionalFrame(IPC::Connection& connection, FrameIde
     }
     protectedPage()->didCommitLoadForFrame(connection, frameID, WTFMove(frameInfo), WTFMove(request), navigationID, WTFMove(mimeType), frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, WTFMove(proxyName), source, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData);
 }
+
+// void WebFrameProxy::commitImmediateLoadFrame(IPC::Connection& connection, FrameIdentifier frameID, FrameInfoData&& frameInfo, ResourceRequest&& request, std::optional<WebCore::NavigationIdentifier> navigationID, String&& mimeType, bool frameHasCustomContentProvider, FrameLoadType frameLoadType, const CertificateInfo& certificateInfo, bool usedLegacyTLS, bool privateRelayed, String&& proxyName, WebCore::ResourceResponseSource source, bool containsPluginDocument, HasInsecureContent hasInsecureContent, MouseEventPolicy mouseEventPolicy, const UserData& userData) {
+//     ASSERT(m_page);
+//     if (m_isPendingImmediateLoad) {
+//         protectedProcess()->send(Messages::WebPage::LoadDidCommitInAnotherProcess(frameID, m_layerHostingContextIdentifier), *webPageIDInCurrentProcess());
+//         if (RefPtr process = std::exchange(m_oldImmediateLoadProcess, nullptr)->takeFrameProcess())
+//             m_frameProcess = process.releaseNonNull();
+//         m_isPendingImmediateLoad = false;
+//     }
+//     protectedPage()->didCommitLoadForFrame(connection, frameID, WTFMove(frameInfo), WTFMove(request), navigationID, WTFMove(mimeType), frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, WTFMove(proxyName), source, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData);
+// }
+
+
 
 void WebFrameProxy::getFrameInfo(CompletionHandler<void(std::optional<FrameInfoData>&&)>&& completionHandler)
 {
