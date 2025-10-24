@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "FrameLoadState.h"
 #include "MessageReceiver.h"
+#include "ProvisionalFrameCreationParameters.h"
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/IntSize.h>
@@ -199,6 +200,7 @@ public:
     void didCreateSubframe(WebCore::FrameIdentifier, String&& frameName, WebCore::SandboxFlags, WebCore::ReferrerPolicy, WebCore::ScrollbarMode);
     ProcessID processID() const;
     void prepareForProvisionalLoadInProcess(WebProcessProxy&, API::Navigation&, BrowsingContextGroup&, CompletionHandler<void(WebCore::PageIdentifier)>&&);
+    void createLocalFrameInProcessWithEffectiveOrigin(WebProcessProxy&, WebCore::SecurityOriginData&, API::Navigation&, BrowsingContextGroup&);
 
     void commitProvisionalFrame(IPC::Connection&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, String&& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType, const WebCore::CertificateInfo&, bool usedLegacyTLS, bool privateRelayed, String&& proxyName, WebCore::ResourceResponseSource, bool containsPluginDocument, WebCore::HasInsecureContent, WebCore::MouseEventPolicy, const UserData&);
 
@@ -273,6 +275,8 @@ public:
     template<typename M> void send(M&&);
 
     void sendMessageToInspectorFrontend(const String& targetId, const String& message);
+
+    ProvisionalFrameCreationParameters defaultProvisionalFrameCreationParameters();
 
 private:
     WebFrameProxy(WebPageProxy&, FrameProcess&, WebCore::FrameIdentifier, WebCore::SandboxFlags, WebCore::ReferrerPolicy, WebCore::ScrollbarMode, WebFrameProxy*, IsMainFrame);

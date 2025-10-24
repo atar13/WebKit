@@ -474,6 +474,13 @@ void WebFrame::createProvisionalFrame(ProvisionalFrameCreationParameters&& param
         updateLocalFrameSize(localFrame, *parameters.initialSize);
 }
 
+void WebFrame::createProvisionalFrameAndCommit(ProvisionalFrameCreationParameters&& parameters, CompletionHandler<void()>&& completionHandler)
+{
+    createProvisionalFrame(WTFMove(parameters));
+    commitProvisionalFrame();
+    completionHandler();
+}
+
 void WebFrame::destroyProvisionalFrame()
 {
     if (RefPtr frame = std::exchange(m_provisionalFrame, nullptr)) {

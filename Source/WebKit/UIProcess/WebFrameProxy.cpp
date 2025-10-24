@@ -38,6 +38,7 @@
 #include "LoadedWebArchive.h"
 #include "MessageSenderInlines.h"
 #include "NetworkProcessMessages.h"
+#include "ProvisionalFrameCreationParameters.h"
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
 #include "RemotePageProxy.h"
@@ -495,6 +496,33 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, String&&
     m_childFrames.add(WTFMove(child));
 }
 
+void WebFrameProxy::createLocalFrameInProcessWithEffectiveOrigin(WebProcessProxy& newProcess, SecurityOriginData& effectiveOrigin, API::Navigation& navigation, BrowsingContextGroup& group)
+{
+    // Creates a local frame in a given process and with a given origin.
+    // This will create a provisional frame and immediately commit it, so it
+    // is meant for sites with no network resources to load (i.e. about:blank).
+
+    // Notify the old process that it's frame is being loaded in another process
+    protectedProcess()->send(Messages::WebPage::LoadDidCommitInAnotherProcess(frameID(), m_layerHostingContextIdentifier), *webPageIDInCurrentProcess());
+
+    RefPtr page = m_page.get();
+    Site mainFrameSite(page->mainFrame()->url());
+    auto mainFrameDomain = mainFrameSite.domain();
+
+
+    Ref newFrameProcess = group.ensureProcessForSite(Site { effectiveOrigin }, mainFrameSite, newProcess, page->protectedPreferences(), InjectBrowsingContextIntoProcess::No);
+
+    newProcess.sendWithAsyncReply(Messages::WebFrame::CreateProvisionalFrameAndCommit(defaultProvisionalFrameCreationParameters()),
+        [weakThis = WeakPtr { *this }, weakNewFrameProcess = WeakPtr { newFrameProcess.get() }] {
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+            if (!weakNewFrameProcess)
+                return;
+            protectedThis->setProcess(*weakNewFrameProcess);
+    }, frameID());
+}
+
 void WebFrameProxy::prepareForProvisionalLoadInProcess(WebProcessProxy& process, API::Navigation& navigation, BrowsingContextGroup& group, CompletionHandler<void(WebCore::PageIdentifier)>&& completionHandler)
 {
     if (isMainFrame())
@@ -846,6 +874,19 @@ void WebFrameProxy::sendMessageToInspectorFrontend(const String& targetId, const
 {
     if (RefPtr page = m_page.get())
         page->inspectorController().sendMessageToInspectorFrontend(targetId, message);
+}
+
+ProvisionalFrameCreationParameters WebFrameProxy::defaultProvisionalFrameCreationParameters()
+{
+    return ProvisionalFrameCreationParameters {
+        frameID(),
+        std::nullopt,
+        layerHostingContextIdentifier(),
+        effectiveSandboxFlags(),
+        effectiveReferrerPolicy(),
+        scrollingMode(),
+        remoteFrameSize(),
+    };
 }
 
 } // namespace WebKit

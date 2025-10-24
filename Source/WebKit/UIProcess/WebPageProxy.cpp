@@ -5372,6 +5372,15 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         loadParameters.isPerformingHTTPFallback = isPerformingHTTPFallback == IsPerformingHTTPFallback::Yes;
         loadParameters.isHandledByAboutSchemeHandler = m_aboutSchemeHandler->canHandleURL(loadParameters.request.url());
 
+        if (navigation.currentRequest().url().isAboutBlank()) {
+            // New frame should be in the same process as the frame which originated navigation
+            SecurityOriginData originator(navigation.originatingFrameInfo()->securityOrigin);
+
+            frame.createLocalFrameInProcessWithEffectiveOrigin(newProcess, originator, navigation, m_browsingContextGroup);
+            newProcess->send(Messages::WebPage::LoadRequest(WTFMove(loadParameters)), webPageIDInProcess(newProcess));
+            return;
+        }
+
         if (navigation.isInitialFrameSrcLoad())
             frame.setIsPendingInitialHistoryItem(true);
 

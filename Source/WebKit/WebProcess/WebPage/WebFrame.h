@@ -127,6 +127,7 @@ public:
     RefPtr<WebCore::Frame> protectedCoreFrame() const;
 
     void createProvisionalFrame(ProvisionalFrameCreationParameters&&);
+    void createProvisionalFrameAndCommit(ProvisionalFrameCreationParameters&&, CompletionHandler<void()>&&);
     void commitProvisionalFrame();
     void destroyProvisionalFrame();
     void loadDidCommitInAnotherProcess(std::optional<WebCore::LayerHostingContextIdentifier>);
