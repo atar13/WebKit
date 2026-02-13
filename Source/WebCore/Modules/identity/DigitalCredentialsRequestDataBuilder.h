@@ -59,12 +59,15 @@ private:
 
     static ExceptionOr<ResponseType> parseRequestedDataElements(const ISO18013DocumentRequest&);
 
+    static inline bool isValidMatchingHint(const WTF::String&);
+
+
 #if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/DigitalCredentialsRequestDataBuilderAdditions.h>)
-// FIXME: Properly support using WKA in modules.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
-#include <WebKitAdditions/DigitalCredentialsRequestDataBuilderAdditions.cpp>
-#pragma clang diagnostic pop
+// // FIXME: Properly support using WKA in modules.
+// #pragma clang diagnostic push
+// #pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
+#include <WebKitAdditions/DigitalCredentialsRequestDataBuilderAdditions.h>
+// #pragma clang diagnostic pop
 #else
     static constexpr ASCIILiteral ISO18013RequestInfoDocType = "org.iso.mdoc.requestInfo";
     static constexpr ASCIILiteral requestInfoNamespace = "mdoc.requestInfo"_s;

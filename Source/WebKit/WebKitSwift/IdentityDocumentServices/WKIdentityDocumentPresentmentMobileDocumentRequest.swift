@@ -58,10 +58,16 @@ extension WKIdentityDocumentPresentmentMobileDocumentPresentmentRequest {
 extension WKIdentityDocumentPresentmentMobileDocumentIndividualDocumentRequest {
     var documentType: String
     var namespaces: [String: [String: WKIdentityDocumentPresentmentMobileDocumentElementInfo]]
+#if ENABLE_ISO18013_DOCUMENT_REQUEST_INFO
+    var applicationSpecificExtensions: [String: Any]?
+#endif
 
     init(documentType: String, namespaces: [String: [String: WKIdentityDocumentPresentmentMobileDocumentElementInfo]]) {
         self.documentType = documentType
         self.namespaces = namespaces
+#if ENABLE_ISO18013_DOCUMENT_REQUEST_INFO
+        self.applicationSpecificExtensions = nil
+#endif
     }
 }
 

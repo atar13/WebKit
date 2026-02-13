@@ -28,6 +28,8 @@
 
 #if HAVE(ENHANCED_SECURITY_LINKS)
 
+#import <wtf/CompletionHandler.h>
+
 #if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/EnhancedSecurityLinkAdditions.mm>)
 #import <WebKitAdditions/EnhancedSecurityLinkAdditions.mm>
 #else

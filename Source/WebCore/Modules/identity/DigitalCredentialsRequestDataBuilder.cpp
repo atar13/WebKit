@@ -175,11 +175,12 @@ ExceptionOr<RawDigitalCredentialsWithRequestInfo> DigitalCredentialsRequestDataB
     );
 }
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/DigitalCredentialsRequestDataBuilderAdditions.cpp>)
+#if USE(APPLE_INTERNAL_SDK)
 #include <WebKitAdditions/DigitalCredentialsRequestDataBuilderAdditions.cpp>
 #else
-static inline bool isValidMatchingHint(StringView matchingHint)
+inline bool DigitalCredentialsRequestDataBuilder::isValidMatchingHint(const WTF::String& matchingHint)
 {
+    UNUSED_PARAM(matchingHint);
     return true;
 }
 #endif

@@ -56,6 +56,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, strong) NSDictionary<NSString *, NSDictionary<NSString *, WKIdentityDocumentPresentmentMobileDocumentElementInfo *> *> *namespaces;
 
+#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+@property (nonatomic, strong, nullable) NSDictionary<NSString *, id> *applicationSpecificExtensions;
+#endif
+
 - (instancetype)initWithDocumentType:(NSString *)documentType namespaces:(NSDictionary<NSString *, NSDictionary<NSString *, WKIdentityDocumentPresentmentMobileDocumentElementInfo *> *> *)namespaces NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
