@@ -43,6 +43,7 @@ namespace WebCore {
 
 ExceptionOr<std::pair<DigitalCredentialsRequestData, DigitalCredentialsRawRequests>> DigitalCredentialsRequestDataBuilder::build(Vector<ValidatedMobileDocumentRequest> validatedCredentialRequests, const Document& document, Vector<UnvalidatedDigitalCredentialRequest>&& unvalidatedRequests)
 {
+    LogDigitalCredentials.state = WTFLogChannelState::On;
 #if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
     auto allRequests = flatMap(validatedCredentialRequests, [](auto& validatedRequest) {
         return flatMap(validatedRequest.presentmentRequests, [](auto& presentmentRequest) {
@@ -52,13 +53,31 @@ ExceptionOr<std::pair<DigitalCredentialsRequestData, DigitalCredentialsRawReques
         });
     });
 
+    WTFLogAlways("DigitalCredentials: Total flattened requests: %zu", allRequests.size());
+    WTFLogAlways("DigitalCredentials: ISO18013RequestInfoDocType=%s", ISO18013RequestInfoDocType.characters());
+    for (size_t i = 0; i < allRequests.size(); ++i) {
+        auto& request = allRequests[i];
+        WTFLogAlways("DigitalCredentials: Request[%zu]: documentType=%s, hasRequestInfo=%d, namespaces.size=%zu",
+            i, request.documentType.utf8().data(), request.requestInfo.has_value(), request.namespaces.size());
+
+        if (request.requestInfo.has_value()) {
+            WTFLogAlways("DigitalCredentials: Request[%zu] requestInfo: extension.size=%zu",
+                i, static_cast<size_t>(request.requestInfo->extension.size()));
+        }
+    }
+
     auto results = compactMap(allRequests, [&document](auto& request) -> std::optional<ExceptionOr<std::pair<DigitalCredentialsRequestData, DigitalCredentialsRawRequests>>> {
-        if (!request.requestInfo.has_value() || request.documentType != ISO18013RequestInfoDocType)
+        if (!request.requestInfo.has_value() || request.documentType != ISO18013RequestInfoDocType) {
+            WTFLogAlways("DigitalCredentials: Skipping request: requestInfo=%d, documentType=%s (expected=%s)",
+                request.requestInfo.has_value(), request.documentType.utf8().data(), ISO18013RequestInfoDocType.characters());
             return std::nullopt;
+        }
 
         auto result = buildAndValidateRequestDataWithRequestInfo(request, document);
-        if (result.hasException())
+        if (result.hasException()) {
+            WTFLogAlways("DigitalCredentials: buildAndValidateRequestDataWithRequestInfo failed: %s", result.exception().message().utf8().data());
             return result.releaseException();
+        }
 
         auto [requestDataWithRequestInfo, rawRequestStrings] = result.releaseReturnValue();
         return std::make_pair(
@@ -75,8 +94,12 @@ ExceptionOr<std::pair<DigitalCredentialsRequestData, DigitalCredentialsRawReques
         if (result.hasException() && !firstException)
             firstException = result.releaseException();
     }
-    if (firstException)
+    if (firstException) {
+        WTFLogAlways("DigitalCredentials: Falling back to MDL: all requests with requestInfo failed. First exception: %s", firstException.value().exception().message().utf8().data());
         return firstException.value();
+    }
+
+    WTFLogAlways("DigitalCredentials: Falling back to MDL: no requests with requestInfo found (total requests: %zu)", allRequests.size());
 #endif // ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
 
     // otherwise send all requests

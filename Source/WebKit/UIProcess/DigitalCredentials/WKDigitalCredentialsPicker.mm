@@ -24,6 +24,7 @@
  */
 
 #import "config.h"
+#include "wtf/Assertions.h"
 #import "WKDigitalCredentialsPicker.h"
 
 #if ENABLE(WEB_AUTHN)
@@ -289,6 +290,7 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
 
 - (void)presentWithRequestData:(const WebCore::DigitalCredentialsRequestData &)requestData completionHandler:(CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData> &&)> &&)completionHandler
 {
+    WebKit2LogDigitalCredentials.state = WTFLogChannelState::On;
     WTF::switchOn(requestData,
         [](const auto& requestData) {
             LOG(DigitalCredentials, "WKDigitalCredentialsPicker: Digital Credentials - Presenting with request data: %s.", requestData.topOrigin.toString().utf8().data());
@@ -303,9 +305,11 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
 
     WTF::switchOn(requestData,
         [self](const WebCore::DigitalCredentialsMobileDocumentRequestData& requestData) {
+            LOG(DigitalCredentials, "WKDigitalCredentialsPicker: Digital Credentials - Presenting IDS");
             [self performRequest:requestData];
         },
         [](const auto& data) {
+            LOG(DigitalCredentials, "WKDigitalCredentialsPicker: Digital Credentials - Presenting AS");
             UNUSED_PARAM(data);
             ASSERT_NOT_IMPLEMENTED_YET();
         }

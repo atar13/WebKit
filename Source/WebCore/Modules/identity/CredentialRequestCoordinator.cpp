@@ -24,6 +24,7 @@
  */
 #include "config.h"
 #include "CredentialRequestCoordinator.h"
+#include "wtf/Assertions.h"
 
 #if ENABLE(WEB_AUTHN)
 
@@ -120,6 +121,7 @@ CredentialPromise* CredentialRequestCoordinator::currentPromise()
 
 void CredentialRequestCoordinator::prepareCredentialRequest(const Document& document, CredentialPromise&& promise, Vector<UnvalidatedDigitalCredentialRequest>&& unvalidatedRequests, RefPtr<AbortSignal> signal)
 {
+    LogDigitalCredentials.state = WTFLogChannelState::On;
     if (m_state != PickerState::Idle)
         return promise.reject(ExceptionCode::InvalidStateError, "A credential picker operation is already in progress."_s);
 
